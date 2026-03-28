@@ -1,0 +1,27 @@
+# Licensed under the Apache-2.0 license
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_rust//rust:defs.bzl", "rust_doc", "rust_library", "rust_test")
+
+package(default_visibility = ["//visibility:public"])
+
+rust_library(
+    name = "queue",
+    srcs = [
+        "lib.rs",
+    ],
+    crate_name = "util_queue",
+    edition = "2024",
+    deps = [
+    ],
+)
+
+rust_test(
+    name = "queue_test",
+    crate = ":queue",
+)
+
+rust_doc(
+    name = "queue_doc",
+    crate = ":queue",
+)
