@@ -56,6 +56,18 @@ pub struct SimpleEp0 {
     new_address: Option<u8>,
 }
 
+/// A trait for modular USB class implementations.
+pub trait UsbClass {
+    /// Attempt to handle a USB event.
+    ///
+    /// If the event is handled by this class, it returns `Ok(UsbAction)`.
+    /// Otherwise, it returns the original event in `Err`.
+    fn handle_event<'a, P: UsbPacket>(
+        &'a mut self,
+        event: UsbEvent<P>,
+    ) -> Result<UsbAction<'a>, UsbEvent<P>>;
+}
+
 /// Indicates the result of running a USB action.
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum UsbActionRun {
@@ -104,6 +116,44 @@ pub enum UsbAction<'a> {
         stall: bool,
     },
 }
+
+impl PartialEq for UsbAction<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::None, Self::None) => true,
+            (
+                Self::TransferIn {
+                    endpoint: e1,
+                    data: d1,
+                    zlp: z1,
+                },
+                Self::TransferIn {
+                    endpoint: e2,
+                    data: d2,
+                    zlp: z2,
+                },
+            ) => e1 == e2 && core::ptr::eq(*d1, *d2) && z1 == z2,
+            (Self::StallInAndOut { endpoint: e1 }, Self::StallInAndOut { endpoint: e2 }) => e1 == e2,
+            (Self::SetAddress { new_address: a1 }, Self::SetAddress { new_address: a2 }) => a1 == a2,
+            (
+                Self::GetEndpointStatus { endpoint: e1 },
+                Self::GetEndpointStatus { endpoint: e2 },
+            ) => e1 == e2,
+            (
+                Self::SetEndpointStatus {
+                    endpoint: e1,
+                    stall: s1,
+                },
+                Self::SetEndpointStatus {
+                    endpoint: e2,
+                    stall: s2,
+                },
+            ) => e1 == e2 && s1 == s2,
+            _ => false,
+        }
+    }
+}
+impl Eq for UsbAction<'_> {}
 impl<'a> UsbAction<'a> {
     const EP_CLEAR: Aligned<A4, [u8; 2]> = Aligned([0u8, 0]);
     const EP_HALTED: Aligned<A4, [u8; 2]> = Aligned([1u8, 0]);
@@ -187,25 +237,23 @@ impl SimpleEp0 {
     /// A helper function to process a driver UsbEvent.
     ///
     /// This function returns the action that should be performed on the driver.
-    pub fn handle_event<'a>(
+    pub fn handle_event<'a, P: UsbPacket>(
         &mut self,
-        ev: UsbEvent<impl UsbPacket>,
+        ev: UsbEvent<P>,
         descriptor_source: &'a impl DescriptorSource,
-    ) -> UsbAction<'a> {
+    ) -> Result<UsbAction<'a>, UsbEvent<P>> {
         match ev {
-            UsbEvent::SetupPacket { endpoint, pkt } => {
-                if endpoint == 0 {
-                    return self.handle_setup(pkt, descriptor_source);
+            UsbEvent::SetupPacket { endpoint, pkt } if endpoint == 0 => {
+                use hal_usb::RequestType;
+                if pkt.request().request_type() == RequestType::Standard {
+                    Ok(self.handle_setup(pkt, descriptor_source))
+                } else {
+                    Err(ev)
                 }
             }
-            UsbEvent::PacketSent { endpoint } => {
-                if endpoint == 0 {
-                    return self.handle_packet_sent();
-                }
-            }
-            _ => {}
+            UsbEvent::PacketSent { endpoint } if endpoint == 0 => Ok(self.handle_packet_sent()),
+            _ => Err(ev),
         }
-        UsbAction::None
     }
 
     /// Process a SETUP transfer and return the resulting action.
