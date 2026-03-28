@@ -31,6 +31,39 @@ USB drivers and create hardware-agnostic USB device stacks.
 - **`FunctionalDescriptor`**: Support for serialization of class-specific
   functional descriptors (e.g., DFU functional descriptors).
 
+## USB Class Builder Convention
+
+To maintain zero-cost `const` initialization while supporting modular class
+implementations, all USB classes should provide a companion `Builder` struct.
+
+### Builder Requirements
+
+1.  **Fragment Calculation**: Provide `const fn` methods to calculate child
+    descriptor arrays (e.g., `[EndpointDescriptor; N]`) and hardware config
+    (`[EpIn; N]`, `[EpOut; N]`).
+2.  **Interface Encapsulation**: Provide `const fn` methods to construct fully
+    populated `InterfaceDescriptor` structs. These methods should take references
+    to `static` fragments and `StringHandle`s, hiding class-specific magic
+    numbers (class codes, protocol types) from the application.
+3.  **Class Initialization**: The class's `new()` method should accept its
+    corresponding `Builder` as a configuration object.
+
+### Example Usage (Application)
+
+```rust
+const MY_BUILDER: MyClassBuilder = MyClassBuilder::new(IF_NUM, EP_NUM);
+
+// Static storage for fragments (required for 'static lifetimes)
+static MY_FUNC_DESCS: [FunctionalDescriptor; 1] = MY_BUILDER.functional_descriptors();
+static MY_ENDPOINTS: [EndpointDescriptor; 1] = MY_BUILDER.endpoints();
+
+// Fully encapsulated interface construction
+const MY_INTERFACE: InterfaceDescriptor = MY_BUILDER.interface(NAME_HANDLE, &MY_FUNC_DESCS, &MY_ENDPOINTS);
+
+// Hardware config
+const EPS: ([EpIn; 1], [EpOut; 0]) = MY_BUILDER.eps();
+```
+
 ## Files
 
 - `BUILD.bazel`: Bazel rules for building and testing this library.
