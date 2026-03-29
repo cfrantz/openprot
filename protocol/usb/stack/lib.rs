@@ -155,8 +155,12 @@ impl PartialEq for UsbAction<'_> {
                     zlp: z2,
                 },
             ) => e1 == e2 && core::ptr::eq(*d1, *d2) && z1 == z2,
-            (Self::StallInAndOut { endpoint: e1 }, Self::StallInAndOut { endpoint: e2 }) => e1 == e2,
-            (Self::SetAddress { new_address: a1 }, Self::SetAddress { new_address: a2 }) => a1 == a2,
+            (Self::StallInAndOut { endpoint: e1 }, Self::StallInAndOut { endpoint: e2 }) => {
+                e1 == e2
+            }
+            (Self::SetAddress { new_address: a1 }, Self::SetAddress { new_address: a2 }) => {
+                a1 == a2
+            }
             (
                 Self::GetEndpointStatus { endpoint: e1 },
                 Self::GetEndpointStatus { endpoint: e2 },
@@ -387,7 +391,7 @@ impl Default for SimpleEp0 {
 /// `N` is the number of **words** (`u32`s) in the internal buffer and NOT bytes.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Transfer<const N: usize> {
-    buffer: [u32; N],
+    pub buffer: [u32; N],
     word_offset: usize,
 }
 
