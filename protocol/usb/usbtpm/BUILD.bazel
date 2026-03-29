@@ -1,0 +1,26 @@
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+
+rust_library(
+    name = "usbtpm",
+    srcs = ["lib.rs"],
+    crate_name = "protocol_usb_usbtpm",
+    edition = "2024",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//hal/blocking/usb:hal_usb",
+        "//protocol/usb/stack",
+        "//target/earlgrey/drivers:usb_driver",
+        "//util/error",
+        "@rust_crates//:aligned",
+        "@rust_crates//:zerocopy",
+    ],
+)
+
+rust_test(
+    name = "usbtpm_test",
+    crate = ":usbtpm",
+    rustc_flags = [
+        "-C",
+        "debug-assertions",
+    ],
+)
