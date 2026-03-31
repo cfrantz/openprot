@@ -1,4 +1,4 @@
-# Gemini Context: tpm2-tss
+# Gemini Context: openprot
 
 This repository hosts source code for the OpenPRoT project.  The OpenPRoT
 project aims to develop a toolkit (a set of useful libraries and reference
@@ -13,6 +13,9 @@ dependency.  In addition to using the pigweed Maize kernel, this project
 utilizes several other pigweed resources. Primarily these include the toolchain
 configuration, workflow automation and pigweed's linters and formatting
 checkers.
+
+Note: this project is not part of `google3` and cannot use `google3` resources.  This project uses `bazel`, not `blaze`.
+Note: If an `out` subdirectory exists in the root of this project, that subdirectory is full of tool ouputs and should be ignored.
 
 ## Communication & Clarification
 - If any instruction or architectural direction is ambiguous, you **must** ask the user for clarification before proceeding with the implementation. Never make assumptions that lead to implementing logic with uncertainty (e.g., leaving questions in code comments).
