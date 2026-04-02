@@ -4,7 +4,8 @@
 use std::io::Write;
 
 #[unsafe(no_mangle)]
-pub extern "Rust" fn system_lowlevel_console_write(bytes: &[u8]) {
+pub extern "C" fn system_lowlevel_console_write(ptr: *const u8, length: usize) {
+    let bytes = unsafe { core::slice::from_raw_parts(ptr, length) };
     let _ = std::io::stdout().write_all(bytes);
     let _ = std::io::stdout().flush();
 }

@@ -15,20 +15,26 @@ pub use ufmt::{uwrite, uwriteln};
 
 pub struct Console;
 
-#[cfg(target_os = "none")]
-use console_pigweed::system_lowlevel_console_write;
-#[cfg(not(target_os = "none"))]
-use console_stdout::system_lowlevel_console_write;
+//#[cfg(target_os = "none")]
+//pub use console_pigweed::system_lowlevel_console_write;
+//#[cfg(not(target_os = "none"))]
+//pub use console_stdout::system_lowlevel_console_write;
 
-//unsafe extern "Rust" {
-//    fn system_lowlevel_console_write(bytes: &[u8]);
+//#[cfg(target_os = "none")]
+//pub extern "Rust" fn pigweed_debug_log(bytes: &[u8]) {
+//    use userspace::syscall;
+//    let _ = syscall::debug_log(bytes);
 //}
+
+unsafe extern "C" {
+    fn system_lowlevel_console_write(ptr: *const u8, length: usize);
+}
 
 impl uWrite for Console {
     type Error = Infallible;
 
     fn write_str(&mut self, s: &str) -> Result<(), Infallible> {
-        system_lowlevel_console_write(s.as_bytes());
+        unsafe { system_lowlevel_console_write(s.as_ptr(), s.len()) };
         Ok(())
     }
 }

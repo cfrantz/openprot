@@ -1,7 +1,7 @@
 # Licensed under the Apache-2.0 license
 # SPDX-License-Identifier: Apache-2.0
 
-load("@rules_rust//rust:defs.bzl", "rust_doc", "rust_library")
+load("@rules_rust//rust:defs.bzl", "rust_doc", "rust_library", "rust_static_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -12,9 +12,13 @@ rust_library(
     ],
     edition = "2024",
     deps = [
+        ":dbg_print",
         "@rust_crates//:ufmt",
     ] + select({
-        "@platforms//os:none": [":pigweed"],
+        "@platforms//os:none": [
+            "@pigweed//pw_kernel/userspace",
+            ":pigweed",
+        ],
         "//conditions:default": [":stdout"],
     }),
 )
@@ -24,7 +28,7 @@ rust_doc(
     crate = ":console",
 )
 
-rust_library(
+rust_static_library(
     name = "stdout",
     srcs = [
         "stdout.rs",
@@ -33,7 +37,7 @@ rust_library(
     edition = "2024",
 )
 
-rust_library(
+rust_static_library(
     name = "pigweed",
     srcs = [
         "pigweed.rs",
@@ -41,6 +45,13 @@ rust_library(
     crate_name = "console_pigweed",
     edition = "2024",
     deps = [
-        "@pigweed//pw_kernel/userspace",
+        #"@pigweed//pw_kernel/userspace",
     ],
+)
+
+cc_library(
+    name = "dbg_print",
+    srcs =["dbg_print.c"],
+    hdrs =["dbg_print.h"],
+    alwayslink = 1,
 )
