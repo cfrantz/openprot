@@ -1,0 +1,73 @@
+# Licensed under the Apache-2.0 license
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library")
+load("//target/earlgrey:defs.bzl", "TARGET_COMPATIBLE_WITH")
+
+rust_library(
+    name = "tpm_platform",
+    srcs = [
+        "src/lib.rs",
+        "src/platform/mod.rs",
+        "src/platform/clock.rs",
+        "src/platform/nv.rs",
+        "src/platform/lifecycle.rs",
+    ],
+    crate_features = select({
+        "//target/earlgrey:fpga": ["fpga"],
+        "//target/earlgrey:silicon": ["silicon"],
+        "//target/earlgrey:verilator": ["verilator"],
+        "//conditions:default": [],
+    }),
+    edition = "2024",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@tcgtpm//rust/platform",
+        "@tcgtpm//rust/tpm_types",
+        "@tcgtpm//rust/crypto",
+        "@tcgtpm//rust/nullcrypto",
+        "@pigweed//pw_kernel/userspace",
+    ],
+)
+
+cc_library(
+    name = "tpm_core",
+    deps = [
+        "@tcgtpm//TPMCmd/TpmConfiguration/TpmConfiguration",
+        "@tcgtpm//TPMCmd/TpmConfiguration/TpmVendorCommandHandlers",
+        "@tcgtpm//TPMCmd/tpm/src/command",
+        "@tcgtpm//TPMCmd/tpm/src/crypt:CryptUtil",
+        "@tcgtpm//TPMCmd/tpm/src/crypt:Ticket",
+        "@tcgtpm//TPMCmd/tpm/src/crypt:cmac",
+        "@tcgtpm//TPMCmd/tpm/src/crypt:selftest",
+        "@tcgtpm//TPMCmd/tpm/src/crypt:smac",
+        "@tcgtpm//TPMCmd/tpm/src/events",
+        "@tcgtpm//TPMCmd/tpm/src/main",
+        "@tcgtpm//TPMCmd/tpm/src/subsystem",
+        "@tcgtpm//TPMCmd/tpm/src/support",
+        "@tcgtpm//rust/nullcrypto",
+    ],
+    alwayslink = 1,
+)
+
+rust_binary(
+    name = "tpm_service",
+    srcs = ["src/main.rs"],
+    edition = "2024",
+    tags = ["kernel"],
+    target_compatible_with = TARGET_COMPATIBLE_WITH,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":tpm_platform",
+        ":tpm_core",
+        "//target/earlgrey/tests/usbtpm:app_tpm_service",
+        "@tcgtpm//rust/platform",
+        "@tcgtpm//rust/tpm_types",
+        "@pigweed//pw_log/rust:pw_log",
+        "@pigweed//pw_status/rust:pw_status",
+        "@pigweed//pw_kernel/userspace",
+        "//util/misc",
+        "//util/console",
+    ],
+)
