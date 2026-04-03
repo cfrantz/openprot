@@ -1,4 +1,5 @@
-load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library", "rust_test")
+load("//target/earlgrey:defs.bzl", "TARGET_COMPATIBLE_WITH")
 
 rust_library(
     name = "usbtpm",
@@ -11,8 +12,34 @@ rust_library(
         "//protocol/usb/stack",
         "//target/earlgrey/drivers:usb_driver",
         "//util/error",
+        "//util/misc",
         "@rust_crates//:aligned",
         "@rust_crates//:zerocopy",
+        "@pigweed//pw_log/rust:pw_log",
+    ],
+)
+
+rust_binary(
+    name = "usb_tpm_bridge",
+    srcs = ["src/main.rs"],
+    edition = "2024",
+    tags = ["kernel"],
+    target_compatible_with = TARGET_COMPATIBLE_WITH,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":usbtpm",
+        "//target/earlgrey/tests/usbtpm:app_usb_tpm_bridge",
+        "//hal/blocking/usb:hal_usb",
+        "//protocol/usb/stack",
+        "//target/earlgrey/drivers:usb_driver",
+        "//target/earlgrey/registers",
+        "//target/earlgrey/registers:pinmux",
+        "//target/earlgrey/registers:top_earlgrey",
+        "//target/earlgrey/registers:usbdev",
+        "@pigweed//pw_kernel/userspace",
+        "@pigweed//pw_log/rust:pw_log",
+        "@pigweed//pw_status/rust:pw_status",
+        "@rust_crates//:aligned",
     ],
 )
 

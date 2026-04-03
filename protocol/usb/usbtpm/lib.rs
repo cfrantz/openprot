@@ -220,6 +220,8 @@ impl<'a, T: TpmDevice, const PAYLOAD_WORDS: usize> UsbTpm<'a, T, PAYLOAD_WORDS> 
         payload: &[u8],
         response_buf: &mut [u8],
     ) -> (u32, usize) {
+        //pw_log::info!("Processing {} in locality {}", command_status as u32, locality as u8);
+        //hexdump(payload);
         match command_status {
             MS_SIM_TPM_SEND_COMMAND => {
                 let len = device.execute_command(locality, payload, response_buf);
@@ -240,8 +242,13 @@ impl<'a, T: TpmDevice, const PAYLOAD_WORDS: usize> UsbTpm<'a, T, PAYLOAD_WORDS> 
         );
         self.status = status;
         self.response_len = resp_len;
-        self.state = State::SendingHeader;
+        self.state = if self.req_header.command_status == TPM_SESSION_END {
+            // We don't send any reply or even response header for session end.
+            State::Idle
+        } else { State::SendingHeader} ;
         self.tx_offset = 0;
+        //pw_log::info!("TPM Response: status={} len={}", self.status as u32, self.response_len as u32);
+        //hexdump(&self.response_buf.as_bytes()[..self.response_len]);
     }
 
     /// Polls the state and performs necessary actions.
@@ -357,6 +364,8 @@ impl<'a, T: TpmDevice, const PAYLOAD_WORDS: usize> UsbClass for UsbTpm<'a, T, PA
                                 self.response_len = resp_len;
                                 self.state = State::SendingHeader;
                                 self.tx_offset = 0;
+                                //pw_log::info!("TPM Response: status={} len={}", self.status as u32, self.response_len as u32);
+                                //hexdump(&self.response_buf.as_bytes()[..self.response_len]);
                             }
                             Ok(UsbAction::None)
                         }
