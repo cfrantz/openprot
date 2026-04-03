@@ -60,7 +60,7 @@ config_setting(
 constraint_value(
     name = "target_earlgrey",
     constraint_setting = "@pigweed//pw_kernel/target:target",
-    visibility = [":__subpackages__"],
+    visibility = ["//visibility:public"],
 )
 
 rust_library(
@@ -94,6 +94,7 @@ rust_library(
     crate_name = "console_backend",
     edition = "2024",
     target_compatible_with = TARGET_COMPATIBLE_WITH,
+    visibility = ["//visibility:public"],
     deps = [
         "//target/earlgrey/registers",
         "@pigweed//pw_kernel/arch/riscv:arch_riscv",
