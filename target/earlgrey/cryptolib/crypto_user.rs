@@ -7,18 +7,17 @@ use app_crypto_user::handle;
 use pw_status::{Result, StatusCode, Error};
 use userspace::entry;
 use userspace::syscall;
-//use userspace::time::Instant;
 use util_misc::hexdump;
 
 use crypto_traits::NoParam;
 use crypto_traits::error::ErrorType;
 use crypto_traits::backend::Backend;
 use crypto_traits::drbg::Drbg;
+use crypto_traits::Algorithm;
 use crypto_traits::asymmetric::{
-    Algorithm, AlgoParams,
+    Algorithm as EcdsaAlgorithm, AlgoParams,
     KeyPairGen, Sign, Verify,
     EcdsaP256,
-    //SoftwareKey as _,
 };
 use crypto_traits::digest::{
     Digest,
@@ -27,11 +26,16 @@ use crypto_traits::digest::{
     Algorithm as DigestAlgorithm,
     DigestInit, DigestUpdate, DigestFinal,
 };
+use crypto_traits::hmac::{
+    HmacInit, HmacUpdate, HmacFinal,
+    HmacSha256,
+};
 
 use crypto_common::keytypes::{EcdsaP256PrivateKey, EcdsaP256PublicKey, EcdsaP256Signature
 };
 use crypto_client::backend::CryptoClient;
 use crypto_client::ecdsa::SoftwareKey;
+use crypto_client::hmac::HmacSha256Key;
 use crypto_client::sha2::Sha2_256Digest;
 
 const GETTYSBURG_PRELUDE: &'static str = "\
@@ -65,15 +69,12 @@ where
     Handle: KeyPairGen<EcdsaP256, SoftwareKey>,
     Handle: Sign<EcdsaP256PrivateKey, Message=D, Param=NoParam, Signature=EcdsaP256Signature>,
     Handle: Verify<EcdsaP256PublicKey, Message=D, Param=NoParam, Signature=EcdsaP256Signature>,
-    EcdsaP256: Algorithm<Handle>,
+    EcdsaP256: EcdsaAlgorithm<Handle>,
     SoftwareKey: AlgoParams<Handle, EcdsaP256, PrivateKey=EcdsaP256PrivateKey, PublicKey=EcdsaP256PublicKey>,
 {
     pw_log::info!("Ecdsa keygen");
     let (private, public) = handle.key_pair_gen(&EcdsaP256, &SoftwareKey)?;
 
-    //pw_log::info!("digest type: {}", core::any::type_name_of_val(digest) as &str);
-    //let x = &GETTYSBURG_DIGEST;
-    //pw_log::info!("digest type: {}", core::any::type_name_of_val(x) as &str);
     let sig = handle.sign(&private, digest, &NoParam)?;
 
     let verify = handle.verify(&public, digest, &NoParam, &sig)?;
@@ -81,6 +82,20 @@ where
 
     Ok(sig)
 }
+
+fn hmac_test<'a, Handle, A, D>(handle: &Handle, alg: &A, key: &[u8; 32], data: &[u8]) -> Result<D>
+where
+    Handle: Backend + ErrorType<Error = Error> + HmacInit<'a, A, Key = HmacSha256Key>,
+    A: Algorithm<Handle>,
+    Handle: HmacUpdate<<Handle as HmacInit<'a, A>>::Context>,
+    Handle: HmacFinal<<Handle as HmacInit<'a, A>>::Context, Tag = D>,
+    D: Digest,
+{
+    let ctx = handle.hmac_init(alg, &HmacSha256Key(*key))?;
+    handle.hmac_update(&ctx, data)?;
+    handle.hmac_finalize(ctx)
+}
+
 
 fn drbg_test<Handle>(handle: &Handle) -> Result<()>
 where
@@ -120,6 +135,11 @@ fn generic_test(handle: &CryptoClient) -> Result<()> {
 
 fn test(handle: &CryptoClient) -> Result<()> {
     drbg_test(handle)?;
+
+    let hmac_tag = hmac_test(handle, &HmacSha256, &[0u8; 32], GETTYSBURG_PRELUDE.as_bytes())?;
+    pw_log::info!("HMAC tag:");
+    hexdump(&hmac_tag);
+
     generic_test(handle)?;
 
 
@@ -132,8 +152,6 @@ fn test(handle: &CryptoClient) -> Result<()> {
 
     pw_log::info!("Wanted digest");
     hexdump(&GETTYSBURG_DIGEST);
-
-    // Generics test
 
     ////////////////////////////////////////////////////////////
     // ECDSA P-256 keygen/sign/verify

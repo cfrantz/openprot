@@ -11,7 +11,7 @@ impl<B: Backend + ?Sized> Algorithm<B> for HmacSha256 {}
 impl<B: Backend + ?Sized> Algorithm<B> for HmacSha384 {}
 impl<B: Backend + ?Sized> Algorithm<B> for HmacSha512 {}
 
-pub trait HmacInit<A>: ErrorType
+pub trait HmacInit<'a, A>: ErrorType
 where
     Self: Backend,
     A: Algorithm<Self>,

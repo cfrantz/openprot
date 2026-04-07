@@ -1,16 +1,18 @@
 use crate::asymmetric;
 use crate::digest::Sha2Contexts;
 use crate::drbg;
+use crate::hmac::HmacContexts;
 use crypto_common::Opcode;
 use pw_status::Error;
 use zerocopy::FromBytes;
 
 use otcrypto::{CryptoInterface, OtCrypto};
-//use util_misc::hexdump;
+//use util::hexdump;
 
 #[derive(Default)]
 pub struct Server {
     digest: Sha2Contexts<4>,
+    hmac: HmacContexts<4>,
 }
 
 impl Server {
@@ -67,8 +69,16 @@ impl Server {
             Opcode::DRBG_RESEED => drbg::reseed(req, rsp),
             Opcode::DRBG_GENERATE => drbg::generate(req, rsp),
             Opcode::DRBG_UNINSTANTIATE => drbg::uninstantiate(req, rsp),
+            Opcode::HMAC_SHA2_256_INIT
+            | Opcode::HMAC_SHA2_384_INIT
+            | Opcode::HMAC_SHA2_512_INIT => self.hmac.init(opcode, req, rsp),
+            Opcode::HMAC_SHA2_256_UPDATE
+            | Opcode::HMAC_SHA2_384_UPDATE
+            | Opcode::HMAC_SHA2_512_UPDATE => self.hmac.update(opcode, req, rsp),
+            Opcode::HMAC_SHA2_256_FINAL
+            | Opcode::HMAC_SHA2_384_FINAL
+            | Opcode::HMAC_SHA2_512_FINAL => self.hmac.finalize(opcode, req, rsp),
             _ => {
-
                 pw_log::info!("Got opcode {}", opcode.as_str() as &str);
                 Err(Error::Unknown)
             }
