@@ -1,0 +1,184 @@
+# Copyright 2025 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@pigweed//pw_kernel/tooling:app_package.bzl", "app_package")
+load("@pigweed//pw_kernel/tooling:system_image.bzl", "system_image")
+load("@pigweed//pw_kernel/tooling:target_codegen.bzl", "target_codegen")
+load("@pigweed//pw_kernel/tooling:target_linker_script.bzl", "target_linker_script")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library")
+load("//target/earlgrey/signing/keys:defs.bzl", "FPGA_ECDSA_KEY", "SILICON_ECDSA_KEY")
+load("//target/earlgrey:defs.bzl", "TARGET_COMPATIBLE_WITH")
+load("//target/earlgrey/tooling:opentitan_runner.bzl", "opentitan_runner", "opentitan_test")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_import(
+    name = "libotcrypto",
+    static_library = "libotcrypto.a",
+    target_compatible_with = TARGET_COMPATIBLE_WITH,
+)
+
+
+# The bindings were created by bindgen:
+# bindgen otcrypto.h -o otcrypto.rs \
+#     --use-core --no-derive-debug --no-layout-tests \
+#     --raw-line '#![no_std]' \
+#     --raw-line '#![allow(non_camel_case_types)]' \
+#     --raw-line '#![allow(non_upper_case_globals)]' \
+#     --allowlist-item="otcrypto_.*"
+
+rust_library(
+    name = "otcrypto",
+    srcs = [
+        "datatypes.rs",
+        "implementation.rs",
+        "interface.rs",
+        "lib.rs",
+        "misc.rs",
+        "otcrypto.rs",
+    ],
+    crate_name = "otcrypto",
+    edition = "2024",
+    target_compatible_with = TARGET_COMPATIBLE_WITH,
+    deps = [
+        ":libotcrypto",
+        "@pigweed//pw_log/rust:pw_log",
+        "@pigweed//pw_status/rust:pw_status",
+        "@rust_crates//:zerocopy",
+    ],
+)
+
+rust_binary(
+    name = "cryptolib",
+    srcs = [
+        "main.rs",
+    ],
+    crate_name = "cryptolib",
+    edition = "2024",
+    target_compatible_with = TARGET_COMPATIBLE_WITH,
+    deps = [
+        ":app_cryptolib",
+        ":otcrypto",
+        "//crypto/server",
+        "@pigweed//pw_kernel/syscall:syscall_user",
+        "@pigweed//pw_kernel/userspace",
+        "@pigweed//pw_log/rust:pw_log",
+        "@pigweed//pw_status/rust:pw_status",
+        "@rust_crates//:zerocopy",
+    ],
+)
+
+app_package(
+    name = "app_cryptolib",
+    app_name = "cryptolib",
+    edition = "2024",
+    system_config = "@pigweed//pw_kernel/target:system_config_file",
+    tags = ["kernel"],
+)
+
+rust_binary(
+    name = "crypto_user",
+    srcs = [
+        "crypto_user.rs",
+    ],
+    crate_name = "crypto_user",
+    edition = "2024",
+    target_compatible_with = TARGET_COMPATIBLE_WITH,
+    deps = [
+        ":app_crypto_user",
+        "//crypto/client",
+        "//crypto/common",
+        "//crypto/traits",
+        "//util/misc",
+        "@pigweed//pw_kernel/syscall:syscall_user",
+        "@pigweed//pw_kernel/userspace",
+        "@pigweed//pw_log/rust:pw_log",
+        "@pigweed//pw_status/rust:pw_status",
+        "@rust_crates//:zerocopy",
+    ],
+)
+
+app_package(
+    name = "app_crypto_user",
+    app_name = "crypto_user",
+    edition = "2024",
+    system_config = "@pigweed//pw_kernel/target:system_config_file",
+    tags = ["kernel"],
+)
+
+system_image(
+    name = "cryptolib_demo",
+    apps = [
+        ":cryptolib",
+        ":crypto_user",
+    ],
+    kernel = ":target",
+    platform = "//target/earlgrey",
+    system_config = ":system_config",
+    tags = ["kernel"],
+)
+
+filegroup(
+    name = "system_config",
+    srcs = ["system.json5"],
+)
+
+target_codegen(
+    name = "codegen",
+    arch = "@pigweed//pw_kernel/arch/riscv:arch_riscv",
+    system_config = ":system_config",
+)
+
+target_linker_script(
+    name = "linker_script",
+    system_config = ":system_config",
+    tags = ["kernel"],
+    template = "//target/earlgrey:linker_script_template",
+)
+
+rust_binary(
+    name = "target",
+    srcs = [
+        "target.rs",
+    ],
+    edition = "2024",
+    tags = ["kernel"],
+    target_compatible_with = TARGET_COMPATIBLE_WITH,
+    deps = [
+        ":codegen",
+        ":linker_script",
+        "//target/earlgrey:entry",
+        "@pigweed//pw_kernel/arch/riscv:arch_riscv",
+        "@pigweed//pw_kernel/kernel",
+        "@pigweed//pw_kernel/lib/memory_config",
+        "@pigweed//pw_kernel/subsys/console:console_backend",
+        "@pigweed//pw_kernel/target:target_common",
+        "@pigweed//pw_kernel/userspace",
+        "@pigweed//pw_log/rust:pw_log",
+    ],
+)
+
+opentitan_runner(
+    name = "cryptolib_demo_runner_hyper310",
+    ecdsa_key = FPGA_ECDSA_KEY,
+    interface = "hyper310",
+    target = ":cryptolib_demo",
+)
+
+opentitan_runner(
+    name = "cryptolib_demo_runner_hyper340",
+    ecdsa_key = FPGA_ECDSA_KEY,
+    interface = "hyper340",
+    target = ":cryptolib_demo",
+)
