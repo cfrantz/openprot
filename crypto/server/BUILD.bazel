@@ -23,6 +23,7 @@ rust_library(
         "lib.rs",
         "digest.rs",
         "asymmetric.rs",
+        "drbg.rs",
         "server.rs",
     ],
     crate_name = "crypto_server",

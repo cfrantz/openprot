@@ -75,6 +75,13 @@ impl Opcode {
     pub const RSA4096_SIGN: Self = Self::new(Self::CLASS_RSA4096, *b"SI");
     pub const RSA4096_VERIFY: Self = Self::new(Self::CLASS_RSA4096, *b"VE");
 
+    /// DRBG
+    pub const CLASS_DRBG: u16 = u16::from_le_bytes(*b"DR");
+    pub const DRBG_INSTANTIATE: Self = Self::new(Self::CLASS_DRBG, *b"IN");
+    pub const DRBG_RESEED: Self = Self::new(Self::CLASS_DRBG, *b"RE");
+    pub const DRBG_GENERATE: Self = Self::new(Self::CLASS_DRBG, *b"GE");
+    pub const DRBG_UNINSTANTIATE: Self = Self::new(Self::CLASS_DRBG, *b"UN");
+
     /// Digest types
     pub const CLASS_SHA2_256: u16 = u16::from_le_bytes(*b"S2");
     pub const CLASS_SHA2_384: u16 = u16::from_le_bytes(*b"S3");
@@ -89,6 +96,21 @@ impl Opcode {
     pub const SHA2_512_INIT: Self = Self::new(Self::CLASS_SHA2_512, *b"IN");
     pub const SHA2_512_UPDATE: Self = Self::new(Self::CLASS_SHA2_512, *b"UP");
     pub const SHA2_512_FINAL: Self = Self::new(Self::CLASS_SHA2_512, *b"FI");
+
+    /// HMAC
+    pub const CLASS_HMAC_SHA2_256: u16 = u16::from_le_bytes(*b"H2");
+    pub const CLASS_HMAC_SHA2_384: u16 = u16::from_le_bytes(*b"H3");
+    pub const CLASS_HMAC_SHA2_512: u16 = u16::from_le_bytes(*b"H5");
+
+    pub const HMAC_SHA2_256_INIT: Self = Self::new(Self::CLASS_HMAC_SHA2_256, *b"IN");
+    pub const HMAC_SHA2_256_UPDATE: Self = Self::new(Self::CLASS_HMAC_SHA2_256, *b"UP");
+    pub const HMAC_SHA2_256_FINAL: Self = Self::new(Self::CLASS_HMAC_SHA2_256, *b"FI");
+    pub const HMAC_SHA2_384_INIT: Self = Self::new(Self::CLASS_HMAC_SHA2_384, *b"IN");
+    pub const HMAC_SHA2_384_UPDATE: Self = Self::new(Self::CLASS_HMAC_SHA2_384, *b"UP");
+    pub const HMAC_SHA2_384_FINAL: Self = Self::new(Self::CLASS_HMAC_SHA2_384, *b"FI");
+    pub const HMAC_SHA2_512_INIT: Self = Self::new(Self::CLASS_HMAC_SHA2_512, *b"IN");
+    pub const HMAC_SHA2_512_UPDATE: Self = Self::new(Self::CLASS_HMAC_SHA2_512, *b"UP");
+    pub const HMAC_SHA2_512_FINAL: Self = Self::new(Self::CLASS_HMAC_SHA2_512, *b"FI");
 }
 
 impl Opcode {

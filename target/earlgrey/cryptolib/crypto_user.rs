@@ -13,6 +13,7 @@ use util_misc::hexdump;
 use crypto_traits::NoParam;
 use crypto_traits::error::ErrorType;
 use crypto_traits::backend::Backend;
+use crypto_traits::drbg::Drbg;
 use crypto_traits::asymmetric::{
     Algorithm, AlgoParams,
     KeyPairGen, Sign, Verify,
@@ -81,6 +82,31 @@ where
     Ok(sig)
 }
 
+fn drbg_test<Handle>(handle: &Handle) -> Result<()>
+where
+    Handle: Drbg + ErrorType<Error = Error>,
+{
+    pw_log::info!("DRBG instantiate");
+    handle.instantiate(&[1, 2, 3, 4])?;
+
+    let mut buf = [0u8; 32];
+    pw_log::info!("DRBG generate");
+    handle.generate(&[], &mut buf)?;
+    hexdump(&buf);
+
+    pw_log::info!("DRBG reseed");
+    handle.reseed(&[5, 6, 7, 8])?;
+
+    pw_log::info!("DRBG generate");
+    handle.generate(&[], &mut buf)?;
+    hexdump(&buf);
+
+    pw_log::info!("DRBG uninstantiate");
+    handle.uninstantiate()?;
+
+    Ok(())
+}
+
 fn generic_test(handle: &CryptoClient) -> Result<()> {
     let digest = sha_digest_test(handle, &Sha2_256, GETTYSBURG_PRELUDE.as_bytes())?;
     pw_log::info!("Generic: got digest");
@@ -93,7 +119,7 @@ fn generic_test(handle: &CryptoClient) -> Result<()> {
 }
 
 fn test(handle: &CryptoClient) -> Result<()> {
-
+    drbg_test(handle)?;
     generic_test(handle)?;
 
 
@@ -127,41 +153,8 @@ fn test(handle: &CryptoClient) -> Result<()> {
     let verify = handle.verify(&public, digest, &NoParam, &sig)?;
     pw_log::info!("verify: {}", verify as bool);
 
-    ////////////////////////////////////////////////////////////
-    // RSA2048 keygen/sign/verify
-    ////////////////////////////////////////////////////////////
-//    pw_log::info!("Rsa keygen");
-//    let (private, public) = handle.key_pair_gen(Rsa, &RsaSize3072(RsaKeyMode::SignPkcs))?;
-//    pw_log::info!("private:");
-//    hexdump(&private);
-//    pw_log::info!("public:");
-//    hexdump(&public);
-//
-//    let digest = &GETTYSBURG_DIGEST;
-//    let sig = handle.sign(&private, digest, &RsaPadding::Pkcs)?;
-//    pw_log::info!("signature:");
-//    hexdump(&sig);
-//
-//    let verify = handle.verify(&public, digest, &RsaPadding::Pkcs, &sig)?;
-//    pw_log::info!("verify: {}", verify as bool);
-
-
-//
-//    //let (akey, asig) = handle.cdi1_attest(&GETTYSBURG_DIGEST)?;
-//    //let mut buf = [0u8; 128];
-//    //pw_log::info!("amsg: {}", hexstr(&mut buf, &GETTYSBURG_DIGEST));
-//    //pw_log::info!("akey: {}", hexstr(&mut buf, &akey.keyblob));
-//    //pw_log::info!("asig: {}", hexstr(&mut buf, &asig));
-//
     Ok(())
 }
-
-//fn doit(c: &CryptoClient) -> Result<()> {
-//    let mut code = 0u32;
-//    let len = c.transaction(&[&Opcode::PING], &mut[&mut code], Instant::MAX)?;
-//    pw_log::info!("transaction: code={:x}, len={}", code as u32, len as usize);
-//    Ok(())
-//}
 
 #[entry]
 fn entry() -> ! {

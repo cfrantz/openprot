@@ -1,5 +1,6 @@
 use crate::asymmetric;
 use crate::digest::Sha2Contexts;
+use crate::drbg;
 use crypto_common::Opcode;
 use pw_status::Error;
 use zerocopy::FromBytes;
@@ -59,10 +60,15 @@ impl Server {
             Opcode::SHA2_256_INIT => self.digest.init(opcode, req, rsp),
             Opcode::SHA2_256_UPDATE => self.digest.update(opcode, req, rsp),
             Opcode::SHA2_256_FINAL => self.digest.finalize(opcode, req, rsp),
-            Opcode::SHA2_384_INIT => self.digest.init(opcode, req, rsp),
-            Opcode::SHA2_384_UPDATE => self.digest.update(opcode, req, rsp),
-            Opcode::SHA2_384_FINAL => self.digest.finalize(opcode, req, rsp),
+            Opcode::SHA2_512_INIT => self.digest.init(opcode, req, rsp),
+            Opcode::SHA2_512_UPDATE => self.digest.update(opcode, req, rsp),
+            Opcode::SHA2_512_FINAL => self.digest.finalize(opcode, req, rsp),
+            Opcode::DRBG_INSTANTIATE => drbg::instantiate(req, rsp),
+            Opcode::DRBG_RESEED => drbg::reseed(req, rsp),
+            Opcode::DRBG_GENERATE => drbg::generate(req, rsp),
+            Opcode::DRBG_UNINSTANTIATE => drbg::uninstantiate(req, rsp),
             _ => {
+
                 pw_log::info!("Got opcode {}", opcode.as_str() as &str);
                 Err(Error::Unknown)
             }
