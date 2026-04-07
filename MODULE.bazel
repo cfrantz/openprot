@@ -11,11 +11,14 @@ bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "pigweed")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_rust", version = "0.68.1")
+bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
 bazel_dep(name = "rules_rust_mdbook", version = "0.68.1")
 bazel_dep(name = "rules_platform", version = "0.1.0")
 bazel_dep(name = "rules_python", version = "1.8.3")
 bazel_dep(name = "ureg")
 bazel_dep(name = "tcgtpm")
+bazel_dep(name = "rust_tpm_tools", version = "0.0.1")
+
 
 git_override(
     module_name = "pigweed",
@@ -99,3 +102,28 @@ nonhermetic_repo(name = "nonhermetic")
 
 hsm = use_extension("//third_party/hsm:extensions.bzl", "hsm")
 use_repo(hsm, "cloud_kms_hsm")
+
+### TPM related codebases
+local_path_override(
+    module_name = "rust_tpm_tools",
+    path = "/usr/local/google/home/cfrantz/src/tpm/rust-tpm-tools",
+)
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "tpm2_tss",
+    build_file = "@rust_tpm_tools//third_party/tpm2_tss:BUILD.tpm2_tss.bazel",
+    patch_args = ["-p1"],
+    patches = [
+        "@rust_tpm_tools//third_party/tpm2_tss:0001-version.patch",
+        "@rust_tpm_tools//third_party/tpm2_tss:0002-usb.patch",
+    ],
+    strip_prefix = "tpm2-tss-84d93ba949b2d877d4d321ad00306b7259abfbac",
+    urls = [
+        "https://github.com/tpm2-software/tpm2-tss/archive/84d93ba949b2d877d4d321ad00306b7259abfbac.tar.gz",
+    ],
+)
+
+inject_repo(crate, tpm2_tss = "tpm2_tss")
+
