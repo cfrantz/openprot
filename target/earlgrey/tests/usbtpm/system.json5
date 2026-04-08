@@ -25,6 +25,12 @@
             name: "ipc",
             type: "channel_handler",
           },
+          {
+            name: "CRYPTOLIB",
+            type: "channel_initiator",
+            handler_app: "cryptolib",
+            handler_object_name: "CRYPTOLIB",
+          },
         ],
         memory_mappings: [
           {
@@ -44,6 +50,34 @@
         threads: [
           {
             name: "tpm thread",
+            stack_size_bytes: 2048,
+          },
+        ],
+      },
+    },
+    {
+      name: "cryptolib",
+      flash_size_bytes: 65536, // 16K
+      ram_size_bytes: 12288,    // 4K
+      process: {
+        name: "cryptolib server",
+        memory_mappings: [
+          {
+            name: "mmio",
+            type: "device",
+            start_address: 0x40000000,
+            size_bytes: 0x10000000,
+          }
+        ],
+        objects: [
+            {
+              name: "CRYPTOLIB",
+              type: "channel_handler",
+            }
+        ],
+        threads: [
+          {
+            name: "crypto_server",
             stack_size_bytes: 2048,
           },
         ],

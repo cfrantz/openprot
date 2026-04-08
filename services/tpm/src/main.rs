@@ -11,6 +11,8 @@ use userspace::time::Instant;
 use userspace::{entry, syscall};
 use platform::TpmNv;
 
+use crypto_client::backend::CryptoClient;
+
 use util_misc::hexdump;
 
 // Use the platform implementation to ensure its symbols are linked.
@@ -24,6 +26,9 @@ unsafe extern "C" {
 
 fn tpm_init() {
     pw_log::info!("TPM: Initializing platform...");
+    tpm_platform::tpm_crypto::NullCrypto::initialize(CryptoClient::new(handle::CRYPTOLIB));
+    pw_log::info!("TPM: IPC handle set to {}", handle::CRYPTOLIB);
+
     // These calls are normally made by the platform wrapper, but we'll 
     // ensure the state is set up correctly here.
     // TpmPlatform implements TpmLifecycle, which our implement_tpm_lifecycle macro

@@ -35,6 +35,7 @@ system_image(
     apps = [
         "//services/tpm:tpm_service",
         "//protocol/usb/usbtpm:usb_tpm_bridge",
+        "//target/earlgrey/cryptolib",
     ],
     kernel = ":target",
     platform = "//target/earlgrey",

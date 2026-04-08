@@ -192,6 +192,7 @@ impl CryptoInterface for OtCrypto {
         };
         result.into()
     }
+    /*
     fn dice_p256_keygen(
         private_key: &mut BlindedKey,
         public_key: &mut UnblindedKey,
@@ -229,6 +230,7 @@ impl CryptoInterface for OtCrypto {
         };
         result.into()
     }
+    */
     fn drbg_instantiate(perso_string: &[u8]) -> CryptoResult {
         let result =
             unsafe { otcrypto_drbg_instantiate(otcrypto_const_byte_buf_t::from(perso_string)) };

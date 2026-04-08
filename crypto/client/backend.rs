@@ -11,7 +11,7 @@ impl ErrorType for CryptoClient {
 impl Backend for CryptoClient {}
 
 impl CryptoClient {
-    pub fn new(ipc: u32) -> Self {
+    pub const fn new(ipc: u32) -> Self {
         CryptoClient { ipc }
     }
 }

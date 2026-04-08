@@ -31,6 +31,7 @@ rust_library(
         "@pigweed//pw_kernel/userspace",
         "@tcgtpm//rust/crypto2:kdf_support",
         "//target/earlgrey/registers:rv_core_ibex",
+        "//crypto/client",
     ],
 )
 
@@ -72,5 +73,6 @@ rust_binary(
         "@pigweed//pw_kernel/userspace",
         "//util/misc",
         "//util/console",
+        "//crypto/client",
     ],
 )

@@ -4,14 +4,29 @@ use crypto::{
     TpmCrypto,
 };
 use tpm_types::*;
+use crypto_client::backend::CryptoClient;
 
 pub mod rand;
 
-pub struct NullCrypto;
+pub struct NullCrypto {
+    client: CryptoClient,
+}
+
+static mut INSTANCE: NullCrypto = NullCrypto { client: CryptoClient::new(0) };
+
+impl NullCrypto {
+    pub fn initialize(client: CryptoClient) {
+        unsafe {
+            INSTANCE.client = client;
+        }
+    }
+}
+
 
 impl TpmCrypto for NullCrypto {
     fn get_instance() -> &'static Self {
-        &NullCrypto
+        #[allow(static_mut_refs)]
+        unsafe { &INSTANCE }
     }
 }
 
