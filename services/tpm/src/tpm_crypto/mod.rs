@@ -1,5 +1,5 @@
 use crypto::{
-    ecc::TpmEcc, hash::TpmHash, implement_tpm_ecc, implement_tpm_hash,
+    ecc::TpmEcc, implement_tpm_ecc,
     implement_tpm_rsa, implement_tpm_symmetric, rsa::TpmRsa, sym::TpmSymmetric,
     TpmCrypto,
 };
@@ -7,6 +7,7 @@ use tpm_types::*;
 use crypto_client::backend::CryptoClient;
 
 pub mod rand;
+pub mod hash;
 
 pub struct NullCrypto {
     client: CryptoClient,
@@ -152,50 +153,6 @@ impl TpmEcc for NullCrypto {
     }
 }
 
-static NULL_HASH_DEF: HashDef = HashDef {
-    method: HashMethod::empty(),
-    block_size: 0,
-    digest_size: 0,
-    context_size: 0,
-    hash_alg: TpmAlgId::Null,
-    oid: core::ptr::null(),
-    pkcs1: core::ptr::null(),
-    ecdsa: core::ptr::null(),
-};
-
-impl TpmHash for NullCrypto {
-    fn hash_subsystem_init(&self) -> bool {
-        true
-    }
-    fn hash_subsystem_startup(&self) -> bool {
-        true
-    }
-    fn hash_start(&self, _state: &mut HashState, _alg: TpmAlgId) -> u16 {
-        0
-    }
-    fn hash_update(&self, _state: &mut HashState, _data: &[u8]) {}
-    fn hash_end(&self, _state: &mut HashState, _output: &mut [u8]) -> u16 {
-        0
-    }
-    fn hmac_start(&self, _state: &mut HmacState, _alg: TpmAlgId, _key: &[u8]) -> u16 {
-        0
-    }
-    fn hmac_end(&self, _state: &mut HmacState, _output: &mut [u8]) -> u16 {
-        0
-    }
-    fn hash_def(&self, _alg: TpmAlgId) -> &'static HashDef {
-        &NULL_HASH_DEF
-    }
-    fn hash_by_index(&self, _index: usize) -> TpmAlgId {
-        TpmAlgId::Null
-    }
-    fn hash_context_alg(&self, _state: &HashState) -> TpmAlgId {
-        TpmAlgId::Null
-    }
-    fn hash_export_state(&self, _state: &HashState, _external_state: &mut ExportHashState) {}
-    fn hash_import_state(&self, _state: &mut HashState, _external_state: &ExportHashState) {}
-}
-
 impl TpmRsa for NullCrypto {
     fn rsa_subsystem_init(&self) -> bool {
         true
@@ -293,6 +250,5 @@ impl TpmSymmetric for NullCrypto {
 }
 
 implement_tpm_ecc!(NullCrypto);
-implement_tpm_hash!(NullCrypto);
 implement_tpm_rsa!(NullCrypto);
 implement_tpm_symmetric!(NullCrypto);

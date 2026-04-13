@@ -15,6 +15,7 @@ rust_library(
         "src/platform/lifecycle.rs",
         "src/tpm_crypto/mod.rs",
         "src/tpm_crypto/rand.rs",
+        "src/tpm_crypto/hash.rs",
     ],
     crate_features = select({
         "//target/earlgrey:fpga": ["fpga"],
@@ -32,6 +33,7 @@ rust_library(
         "@tcgtpm//rust/crypto2:kdf_support",
         "//target/earlgrey/registers:rv_core_ibex",
         "//crypto/client",
+        "//crypto/traits",
     ],
 )
 
