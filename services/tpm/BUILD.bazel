@@ -13,6 +13,8 @@ rust_library(
         "src/platform/clock.rs",
         "src/platform/nv.rs",
         "src/platform/lifecycle.rs",
+        "src/tpm_crypto/mod.rs",
+        "src/tpm_crypto/rand.rs",
     ],
     crate_features = select({
         "//target/earlgrey:fpga": ["fpga"],
@@ -26,8 +28,9 @@ rust_library(
         "@tcgtpm//rust/platform",
         "@tcgtpm//rust/tpm_types",
         "@tcgtpm//rust/crypto",
-        "@tcgtpm//rust/nullcrypto",
         "@pigweed//pw_kernel/userspace",
+        "@tcgtpm//rust/crypto2:kdf_support",
+        "//target/earlgrey/registers:rv_core_ibex",
     ],
 )
 
@@ -46,7 +49,7 @@ cc_library(
         "@tcgtpm//TPMCmd/tpm/src/main",
         "@tcgtpm//TPMCmd/tpm/src/subsystem",
         "@tcgtpm//TPMCmd/tpm/src/support",
-        "@tcgtpm//rust/nullcrypto",
+        "@tcgtpm//TPMCmd/tpm/cryptolibs/TpmBigNum",
     ],
     alwayslink = 1,
 )

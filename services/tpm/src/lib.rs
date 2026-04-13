@@ -3,6 +3,4 @@
 #![no_std]
 
 pub mod platform;
-
-// Re-export nullcrypto to ensure its symbols are linked.
-pub use nullcrypto;
+pub mod tpm_crypto;

@@ -17,7 +17,7 @@
     {
       name: "tpm_service",
       flash_size_bytes: 131072,
-      ram_size_bytes: 40960,
+      ram_size_bytes: 49152,
       process: {
         name: "tpm_service process",
         objects: [
@@ -32,7 +32,14 @@
             type: "device",
             start_address: 0x40100000,
             size_bytes: 0x1000,
-          }
+          },
+          {
+            name: "ibex",
+            type: "device",
+            start_address: 0x411F0000,
+            size_bytes: 0x100,
+          },
+
         ],
         threads: [
           {
@@ -45,7 +52,7 @@
     {
       name: "usb_tpm_bridge",
       flash_size_bytes: 32768,
-      ram_size_bytes: 12288,
+      ram_size_bytes: 16384,
       process: {
         name: "usb_tpm_bridge process",
         objects: [
