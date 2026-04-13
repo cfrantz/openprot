@@ -19,6 +19,21 @@ macro_rules! hash_impl {
     ($algo:ident, $mode:expr, $op_prefix:ident, $bytesize:expr) => { paste! {
 
         impl Algorithm<CryptoClient> for $algo {}
+
+        impl From<u32> for Sha2Context<$algo> {
+            fn from(index: u32) -> Self {
+                Self {
+                    index,
+                    _phantom: PhantomData,
+                }
+            }
+        }
+
+        impl From<Sha2Context<$algo>> for u32 {
+            fn from(ctx: Sha2Context<$algo>) -> u32 {
+                ctx.index
+            }
+        }
         #[derive(
             Clone, zerocopy::KnownLayout, zerocopy::Immutable, zerocopy::FromBytes, zerocopy::IntoBytes,
         )]
