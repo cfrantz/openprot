@@ -1,19 +1,18 @@
-use crypto::{
-    ecc::TpmEcc, implement_tpm_ecc,
-    implement_tpm_rsa, implement_tpm_symmetric, rsa::TpmRsa, sym::TpmSymmetric,
-    TpmCrypto,
-};
-use tpm_types::*;
+use crypto::{ecc::TpmEcc, implement_tpm_ecc, implement_tpm_rsa, rsa::TpmRsa, TpmCrypto};
 use crypto_client::backend::CryptoClient;
+use tpm_types::*;
 
-pub mod rand;
 pub mod hash;
+pub mod rand;
+pub mod sym;
 
 pub struct NullCrypto {
     client: CryptoClient,
 }
 
-static mut INSTANCE: NullCrypto = NullCrypto { client: CryptoClient::new(0) };
+static mut INSTANCE: NullCrypto = NullCrypto {
+    client: CryptoClient::new(0),
+};
 
 impl NullCrypto {
     pub fn initialize(client: CryptoClient) {
@@ -23,11 +22,12 @@ impl NullCrypto {
     }
 }
 
-
 impl TpmCrypto for NullCrypto {
     fn get_instance() -> &'static Self {
         #[allow(static_mut_refs)]
-        unsafe { &INSTANCE }
+        unsafe {
+            &INSTANCE
+        }
     }
 }
 
@@ -210,45 +210,5 @@ impl TpmRsa for NullCrypto {
     }
 }
 
-impl TpmSymmetric for NullCrypto {
-    fn symmetric_subsystem_init(&self) -> bool {
-        true
-    }
-    fn symmetric_subsystem_startup(&self) -> bool {
-        true
-    }
-    fn symmetric_get_block_size(&self, _alg: TpmAlgId, _key_size_in_bits: u16) -> usize {
-        0
-    }
-    fn symmetric_key_validate(&self, _sym_def: &TpmtSymDefObject, _key: &[u8]) -> TpmRc {
-        TpmRc::Success
-    }
-    fn symmetric_encrypt(
-        &self,
-        _d_out: &mut [u8],
-        _algorithm: TpmAlgId,
-        _key_size_in_bits: u16,
-        _key: &[u8],
-        _iv: *mut Tpm2B,
-        _mode: TpmAlgId,
-        _d_in: &[u8],
-    ) -> TpmRc {
-        TpmRc::Success
-    }
-    fn symmetric_decrypt(
-        &self,
-        _d_out: &mut [u8],
-        _algorithm: TpmAlgId,
-        _key_size_in_bits: u16,
-        _key: &[u8],
-        _iv: *mut Tpm2B,
-        _mode: TpmAlgId,
-        _d_in: &[u8],
-    ) -> TpmRc {
-        TpmRc::Success
-    }
-}
-
 implement_tpm_ecc!(NullCrypto);
 implement_tpm_rsa!(NullCrypto);
-implement_tpm_symmetric!(NullCrypto);

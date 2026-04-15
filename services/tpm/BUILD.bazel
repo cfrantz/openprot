@@ -16,6 +16,7 @@ rust_library(
         "src/tpm_crypto/mod.rs",
         "src/tpm_crypto/rand.rs",
         "src/tpm_crypto/hash.rs",
+        "src/tpm_crypto/sym.rs",
     ],
     crate_features = select({
         "//target/earlgrey:fpga": ["fpga"],
@@ -30,10 +31,14 @@ rust_library(
         "@tcgtpm//rust/tpm_types",
         "@tcgtpm//rust/crypto",
         "@pigweed//pw_kernel/userspace",
+        "@pigweed//pw_log/rust:pw_log",
+        "@pigweed//pw_status/rust:pw_status",
         "@tcgtpm//rust/crypto2:kdf_support",
         "//target/earlgrey/registers:rv_core_ibex",
+        "//crypto/common",
         "//crypto/client",
         "//crypto/traits",
+        "@rust_crates//:zerocopy",
     ],
 )
 
