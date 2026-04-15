@@ -19,6 +19,7 @@ package(default_visibility = ["//visibility:public"])
 rust_library(
     name = "misc",
     srcs = [
+        "crc32.rs",
         "hexdump.rs",
         "lib.rs",
         "mubi.rs",
