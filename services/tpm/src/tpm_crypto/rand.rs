@@ -1,11 +1,97 @@
-use crypto::{
-    implement_tpm_rand,
-    rand::TpmRand,
-};
+use crypto::{implement_tpm_rand, rand::TpmRand};
+use crypto_traits::digest::{Digest, DigestFinal, DigestInit, DigestUpdate, Sha2_256};
 use tpm_types::*;
+//use crypto_client::sha2::{Sha2Context};
+use crypto_client::backend::CryptoClient;
 
 use crate::tpm_crypto::NullCrypto;
+use pw_status::Error;
 use rv_core_ibex::RvCoreIbex;
+use zerocopy::IntoBytes;
+
+unsafe extern "C" {
+    fn CryptKDFa(
+        hash_alg: TpmAlgId,       // IN: hash algorithm used in HMAC
+        key: *const Tpm2B,        // IN: HMAC key
+        label: *const Tpm2B,      // IN: a label for the KDF
+        context_u: *const Tpm2B,  // IN: context U
+        context_v: *const Tpm2B,  // IN: context V
+        size_in_bits: u32,        // IN: size of generated key in bits
+        key_stream: *mut u8,      // OUT: key buffer
+        counter_in_out: *mut u32, // IN/OUT: caller may provide the iteration
+        //     counter for incremental operations to avoid large intermediate buffers.
+        blocks: u16, // IN: If non-zero, this is the maximum number
+                     //     of blocks to be returned, regardless of sizeInBits
+    ) -> u16;
+
+}
+
+struct FakeDrbg {
+    counter: u64,
+    magic: u32,
+    seed: [u32; 8],
+}
+
+impl FakeDrbg {
+    const fn new() -> Self {
+        Self {
+            counter: 0,
+            magic: DrbgState::MAGIC,
+            seed: [0u32; 8],
+        }
+    }
+
+    fn init(
+        &mut self,
+        client: &CryptoClient,
+        seed: &[u8],
+        purpose: &[u8],
+        name: &[u8],
+        additional: &[u8],
+    ) -> Result<(), Error> {
+        let handle = client.init(&Sha2_256)?;
+        client.update(&handle, seed)?;
+        client.update(&handle, purpose)?;
+        client.update(&handle, name)?;
+        client.update(&handle, additional)?;
+        let digest = client.finalize(handle)?;
+        self.counter = 0;
+        self.seed.as_mut_bytes().copy_from_slice(digest.digest());
+        Ok(())
+    }
+
+    fn additional_data(&mut self, client: &CryptoClient, data: &[u8]) -> Result<(), Error> {
+        let handle = client.init(&Sha2_256)?;
+        client.update(&handle, data)?;
+        let digest = client.finalize(handle)?;
+        self.seed.as_mut_bytes().copy_from_slice(digest.digest());
+        Ok(())
+    }
+
+    fn fill_bytes(&mut self, client: &CryptoClient, data: &mut [u8]) -> Result<(), Error> {
+        for d in data.chunks_mut(32) {
+            let handle = client.init(&Sha2_256)?;
+            self.counter += 1;
+            client.update(&handle, &self.counter.as_bytes())?;
+            client.update(&handle, &self.seed.as_bytes())?;
+            let digest = client.finalize(handle)?;
+            d.copy_from_slice(&digest.digest()[..d.len()]);
+        }
+        Ok(())
+    }
+
+    fn uninit(&mut self) {
+        self.counter = 0;
+        self.magic = DrbgState::INVALID_MAGIC;
+        self.seed.fill(0);
+    }
+
+    fn as_rand_state(&mut self) -> &mut RandState {
+        unsafe { core::mem::transmute(self) }
+    }
+}
+
+static mut BASE_DRBG: FakeDrbg = FakeDrbg::new();
 
 impl TpmRand for NullCrypto {
     fn rand_subsystem_init(&self) -> bool {
@@ -29,23 +115,90 @@ impl TpmRand for NullCrypto {
     fn rand_stir(&self) -> TpmRc {
         TpmRc::Success
     }
-    fn rand_drbg_generate(&self, _state: Option<&mut RandState>, buffer: &mut [u8]) -> u16 {
-        buffer.fill(0);
-        buffer.len() as u16
+
+    fn rand_drbg_generate(&self, state: Option<&mut RandState>, buffer: &mut [u8]) -> u16 {
+        if buffer.is_empty() {
+            return 0;
+        }
+
+        #[allow(static_mut_refs)]
+        let state = state.unwrap_or(unsafe { BASE_DRBG.as_rand_state() });
+        let magic = unsafe { state.drbg.magic };
+        match magic {
+            DrbgState::MAGIC => unsafe {
+                // Translate state to handle.
+                let state = core::mem::transmute::<&mut RandState, &mut FakeDrbg>(state);
+                match state.fill_bytes(&self.client, buffer) {
+                    Ok(_) => buffer.len() as u16,
+                    Err(e) => {
+                        pw_log::error!("drbg_generate error: {}", e as u32);
+                        0
+                    }
+                }
+            },
+            KdfState::MAGIC => unsafe {
+                let state = core::mem::transmute::<&mut RandState, &mut KdfState>(state);
+                let mut counter = state.counter as u32;
+                let rv = CryptKDFa(
+                    state.hash,
+                    state.seed,
+                    state.label,
+                    state.context,
+                    core::ptr::null(),
+                    state.limit.min(buffer.len() as u32 * 8),
+                    buffer.as_mut_ptr(),
+                    &mut counter,
+                    0,
+                );
+                state.counter = counter as u64;
+                rv
+            },
+            _ => {
+                pw_log::error!("Bad DRBG magic={:08x}", magic as u32);
+                0
+            }
+        }
     }
-    fn rand_drbg_additional_data(&self, _state: &mut DrbgState, _data: &[u8]) {}
+
+    fn rand_drbg_additional_data(&self, state: &mut DrbgState, data: &[u8]) {
+        let state = unsafe { core::mem::transmute::<&mut DrbgState, &mut FakeDrbg>(state) };
+        match state.additional_data(&self.client, data) {
+            Ok(()) => {}
+            Err(e) => {
+                pw_log::error!("drbg_additional_data error: {}", e as u32);
+            }
+        }
+    }
+
     fn rand_drbg_instantiate_seeded(
         &self,
-        _state: &mut DrbgState,
-        _seed: &[u8],
-        _purpose: &[u8],
-        _name: &[u8],
-        _additional: &[u8],
+        state: &mut DrbgState,
+        seed: &[u8],
+        purpose: &[u8],
+        name: &[u8],
+        additional: &[u8],
     ) -> TpmRc {
-        TpmRc::Success
+        let state = unsafe { core::mem::transmute::<&mut DrbgState, &mut FakeDrbg>(state) };
+        match state.init(&self.client, seed, purpose, name, additional) {
+            Ok(()) => TpmRc::Success,
+            Err(e) => {
+                pw_log::error!("drbg_instantiate_seeded error: {}", e as u32);
+                TpmRc::Failure
+            }
+        }
     }
-    fn rand_drbg_uninstantiate(&self, _state: &mut DrbgState) -> TpmRc {
-        TpmRc::Success
+
+    fn rand_drbg_uninstantiate(&self, state: &mut DrbgState) -> TpmRc {
+        if state.magic == DrbgState::MAGIC {
+            unsafe {
+                // Translate state to handle.
+                let state = core::mem::transmute::<&mut DrbgState, &mut FakeDrbg>(state);
+                state.uninit();
+            };
+            TpmRc::Success
+        } else {
+            TpmRc::Value
+        }
     }
 }
 
