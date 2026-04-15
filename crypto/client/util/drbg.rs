@@ -18,11 +18,18 @@ pub(crate) fn instantiate(client: &CryptoClient, op: Opcode, perso: &[u8]) -> Re
     Ok(())
 }
 
-pub(crate) fn reseed(client: &CryptoClient, op: Opcode, additional_input: &[u8]) -> Result<(), Error> {
+pub(crate) fn reseed(
+    client: &CryptoClient,
+    op: Opcode,
+    additional_input: &[u8],
+) -> Result<(), Error> {
     let mut status = 0u32;
     let _ = util_ipc::transaction::<{ util::SIZE }>(
         client.ipc,
-        &[/*op=*/ op.as_bytes(), /*additional_input=*/ additional_input],
+        &[
+            /*op=*/ op.as_bytes(),
+            /*additional_input=*/ additional_input,
+        ],
         &mut [status.as_mut_bytes()],
         Instant::MAX,
     )?;
@@ -39,7 +46,10 @@ pub(crate) fn generate(
     let mut status = 0u32;
     let _ = util_ipc::transaction::<{ util::SIZE }>(
         client.ipc,
-        &[/*op=*/ op.as_bytes(), /*additional_input=*/ additional_input],
+        &[
+            /*op=*/ op.as_bytes(),
+            /*additional_input=*/ additional_input,
+        ],
         &mut [status.as_mut_bytes(), output.as_mut_bytes()],
         Instant::MAX,
     )?;

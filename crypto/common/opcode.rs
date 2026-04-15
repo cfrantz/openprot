@@ -41,6 +41,7 @@ impl Opcode {
     pub const CLASS_RSA2048: u16 = u16::from_le_bytes(*b"R2");
     pub const CLASS_RSA3072: u16 = u16::from_le_bytes(*b"R3");
     pub const CLASS_RSA4096: u16 = u16::from_le_bytes(*b"R4");
+    pub const CLASS_AES: u16 = u16::from_le_bytes(*b"AE");
 
     pub const ECDSA_P256_KEYGEN: Self = Self::new(Self::CLASS_ECDSA_P256, *b"KG");
     pub const ECDSA_P256_SIGN: Self = Self::new(Self::CLASS_ECDSA_P256, *b"SI");
@@ -74,6 +75,10 @@ impl Opcode {
     pub const RSA4096_KEYGEN: Self = Self::new(Self::CLASS_RSA4096, *b"KG");
     pub const RSA4096_SIGN: Self = Self::new(Self::CLASS_RSA4096, *b"SI");
     pub const RSA4096_VERIFY: Self = Self::new(Self::CLASS_RSA4096, *b"VE");
+
+    /// AES
+    pub const AES_ENCRYPT: Self = Self::new(Self::CLASS_AES, *b"EN");
+    pub const AES_DECRYPT: Self = Self::new(Self::CLASS_AES, *b"DE");
 
     /// DRBG
     pub const CLASS_DRBG: u16 = u16::from_le_bytes(*b"DR");

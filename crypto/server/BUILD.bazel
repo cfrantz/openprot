@@ -23,6 +23,7 @@ rust_library(
         "lib.rs",
         "digest.rs",
         "asymmetric.rs",
+        "symmetric.rs",
         "drbg.rs",
         "hmac.rs",
         "server.rs",

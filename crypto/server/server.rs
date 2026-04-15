@@ -2,6 +2,7 @@ use crate::asymmetric;
 use crate::digest::Sha2Contexts;
 use crate::drbg;
 use crate::hmac::HmacContexts;
+use crate::symmetric;
 use crypto_common::Opcode;
 use pw_status::Error;
 use zerocopy::FromBytes;
@@ -17,9 +18,12 @@ pub struct Server {
 
 impl Server {
     pub fn exec<'a>(&mut self, req: &mut [u8], rsp: &'a mut [u8]) -> Result<&'a [u8], Error> {
-        //pw_log::info!("request:"); util::hexdump(req);
+        pw_log::info!("request:");
+        util_misc::hexdump(req);
         let (&mut opcode, req) = Opcode::mut_from_prefix(req).map_err(|_| Error::Internal)?;
         match opcode {
+            Opcode::AES_ENCRYPT => symmetric::aes_encrypt_decrypt(opcode, req, rsp),
+            Opcode::AES_DECRYPT => symmetric::aes_encrypt_decrypt(opcode, req, rsp),
             Opcode::ECDSA_P256_KEYGEN => {
                 asymmetric::key_pair_gen(opcode, req, rsp, OtCrypto::ecdsa_p256_keygen)
             }

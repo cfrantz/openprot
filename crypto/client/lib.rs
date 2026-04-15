@@ -1,4 +1,5 @@
 #![no_std]
+pub mod aes;
 pub mod backend;
 pub mod drbg;
 pub mod ecdsa;

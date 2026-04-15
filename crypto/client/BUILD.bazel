@@ -21,6 +21,7 @@ rust_library(
     name = "client",
     srcs = [
         "lib.rs",
+        "aes.rs",
         "backend.rs",
         "drbg.rs",
         "ecdsa.rs",
@@ -28,6 +29,7 @@ rust_library(
         "sha2.rs",
         "util.rs",
         "util/asymmetric.rs",
+        "util/symmetric.rs",
         "util/digest.rs",
         "util/drbg.rs",
         "util/hmac.rs",

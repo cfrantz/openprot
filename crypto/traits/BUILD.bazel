@@ -21,8 +21,9 @@ rust_library(
     name = "traits",
     srcs = [
         "lib.rs",
-        "aes.rs",
+        #"aes.rs",
         "asymmetric.rs",
+        "symmetric.rs",
         "backend.rs",
         "digest.rs",
         "drbg.rs",
