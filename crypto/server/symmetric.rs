@@ -30,15 +30,39 @@ pub fn aes_encrypt_decrypt<'a>(op: Opcode, req: &mut [u8], rsp: &'a mut [u8]) ->
     let (output, _rest) = rest.split_at_mut(input.len());
 
     pw_log::info!("Sending AES");
-    OtCrypto::aes(
-        key.with_key_material(key_material),
-        iv_in,
-        mode,
-        operation,
-        input,
-        AesPadding::Null,
-        output,
-    )?;
+
+    let mut input_len = input.len();
+    let len = input_len & !15;
+    if input_len >= 16 {
+        OtCrypto::aes(
+            key.with_key_material(key_material),
+            iv_in,
+            mode,
+            operation,
+            &input[..len],
+            AesPadding::Null,
+            &mut output[..len],
+        )?;
+
+        input_len -= len;
+    }
+    if input_len > 0 {
+        pw_log::info!("AES remainder: {} bytes", input_len as usize);
+        let mut i2 = [0u8; 16];
+        let mut o2 = [0u8; 16];
+        i2[..input_len].copy_from_slice(&input[len..]);
+        OtCrypto::aes(
+            key.with_key_material(key_material),
+            iv_in,
+            mode,
+            operation,
+            &i2,
+            AesPadding::Null,
+            &mut o2,
+        )?;
+        output[len..].copy_from_slice(&o2[..input_len]);
+    }
+
     pw_log::info!("AES done");
 
     // Copy the IV back to the output.
