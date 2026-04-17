@@ -26,6 +26,7 @@ unsafe extern "C" {
 
 }
 
+#[repr(C)]
 struct FakeDrbg {
     counter: u64,
     magic: u32,
@@ -49,6 +50,8 @@ impl FakeDrbg {
         name: &[u8],
         additional: &[u8],
     ) -> Result<(), Error> {
+        let p = self as *const Self;
+        pw_log::info!("fakedrbg: init {:x}", p as usize);
         let handle = client.init(&Sha2_256)?;
         client.update(&handle, seed)?;
         client.update(&handle, purpose)?;
@@ -56,19 +59,24 @@ impl FakeDrbg {
         client.update(&handle, additional)?;
         let digest = client.finalize(handle)?;
         self.counter = 0;
+        self.magic = DrbgState::MAGIC;
         self.seed.as_mut_bytes().copy_from_slice(digest.digest());
+        pw_log::info!("fakedrbg: initok");
         Ok(())
     }
 
     fn additional_data(&mut self, client: &CryptoClient, data: &[u8]) -> Result<(), Error> {
+        pw_log::info!("fakedrbg: add");
         let handle = client.init(&Sha2_256)?;
         client.update(&handle, data)?;
         let digest = client.finalize(handle)?;
         self.seed.as_mut_bytes().copy_from_slice(digest.digest());
+        pw_log::info!("fakedrbg: addok");
         Ok(())
     }
 
     fn fill_bytes(&mut self, client: &CryptoClient, data: &mut [u8]) -> Result<(), Error> {
+        pw_log::info!("fakedrbg: fill bytes {}", data.len() as usize);
         for d in data.chunks_mut(32) {
             let handle = client.init(&Sha2_256)?;
             self.counter += 1;
@@ -77,6 +85,7 @@ impl FakeDrbg {
             let digest = client.finalize(handle)?;
             d.copy_from_slice(&digest.digest()[..d.len()]);
         }
+        pw_log::info!("fakedrbg: fillok");
         Ok(())
     }
 
@@ -122,10 +131,16 @@ impl TpmRand for NullCrypto {
         }
 
         #[allow(static_mut_refs)]
-        let state = state.unwrap_or(unsafe { BASE_DRBG.as_rand_state() });
+        let state = state.unwrap_or_else(|| {
+            pw_log::info!("Using BASE_DRBG");
+            unsafe { BASE_DRBG.as_rand_state() }
+        });
+        let p = state as *const RandState;
+        pw_log::info!("drbg_generate {:x}", p as usize);
         let magic = unsafe { state.drbg.magic };
         match magic {
             DrbgState::MAGIC => unsafe {
+                pw_log::info!("Rand: drbg");
                 // Translate state to handle.
                 let state = core::mem::transmute::<&mut RandState, &mut FakeDrbg>(state);
                 match state.fill_bytes(&self.client, buffer) {
@@ -137,6 +152,7 @@ impl TpmRand for NullCrypto {
                 }
             },
             KdfState::MAGIC => unsafe {
+                pw_log::info!("Rand: KDFa");
                 let state = core::mem::transmute::<&mut RandState, &mut KdfState>(state);
                 let mut counter = state.counter as u32;
                 let rv = CryptKDFa(
