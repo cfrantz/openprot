@@ -86,6 +86,11 @@ impl TpmSymmetric for NullCrypto {
         mode: TpmAlgId,
         d_in: &[u8],
     ) -> TpmRc {
+        pw_log::info!(
+            "symmetric_encrypt key={}, {} bytes",
+            key.len(),
+            d_in.len() as usize
+        );
         if let Err(e) = check_inputs(algorithm, mode, key.len(), d_out.len()) {
             return e;
         }
@@ -141,6 +146,11 @@ impl TpmSymmetric for NullCrypto {
         mode: TpmAlgId,
         d_in: &[u8],
     ) -> TpmRc {
+        pw_log::info!(
+            "symmetric_decrypt key={}, {} bytes",
+            key.len(),
+            d_in.len() as usize
+        );
         if let Err(e) = check_inputs(algorithm, mode, key.len(), d_out.len()) {
             return e;
         }
@@ -181,8 +191,13 @@ impl TpmSymmetric for NullCrypto {
             _ => return TpmRc::Failure,
         };
         match result {
-            Ok(_) => TpmRc::Success,
-            Err(_) => TpmRc::Failure,
+            Ok(_) => {
+                TpmRc::Success
+            }
+            Err(e) => {
+                pw_log::error!("sym decrypt error: {}", e as u32);
+                TpmRc::Failure
+            }
         }
     }
 }
