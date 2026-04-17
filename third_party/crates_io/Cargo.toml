@@ -46,7 +46,7 @@ nb = "1.0"
 # Pin to match Hubris ecosystem
 rand_core = { version = "0.9", default-features = false }
 subtle = { version = "2", default-features = false }
-zerocopy = { version = "0.8", features = ["derive"] }
+zerocopy = { version = "0.8.48", features = ["derive"] }
 zeroize = { version = "1.8", default-features = false, features = ["derive"] }
 
 # RustCrypto ECDSA crates
