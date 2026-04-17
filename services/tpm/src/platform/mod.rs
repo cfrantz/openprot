@@ -11,17 +11,16 @@
 // the License.
 
 use core::cell::RefCell;
-use platform::{
-    implement_tpm_clock, implement_tpm_lifecycle, implement_tpm_nv,
-    implement_tpm_entropy, implement_tpm_locality, implement_tpm_cancel,
-    implement_tpm_pcr, implement_tpm_info, implement_tpm_virtual_nv,
-    implement_tpm_fail, implement_tpm_secrets, implement_tpm_control,
-};
-use platform::{
-    TpmEntropy, TpmLocality, TpmCancel, TpmPcr, TpmInfo, TpmVirtualNv,
-    TpmFail, TpmSecrets, TpmControl,
-};
 use platform::types::SpecCapabilityValue;
+use platform::{
+    implement_tpm_cancel, implement_tpm_clock, implement_tpm_control, implement_tpm_entropy,
+    implement_tpm_fail, implement_tpm_info, implement_tpm_lifecycle, implement_tpm_locality,
+    implement_tpm_nv, implement_tpm_pcr, implement_tpm_secrets, implement_tpm_virtual_nv,
+};
+use platform::{
+    TpmCancel, TpmControl, TpmEntropy, TpmFail, TpmInfo, TpmLocality, TpmPcr, TpmSecrets,
+    TpmVirtualNv,
+};
 
 mod clock;
 mod lifecycle;
@@ -84,29 +83,53 @@ impl TpmLocality for TpmPlatform {
 }
 
 impl TpmCancel for TpmPlatform {
-    fn is_canceled() -> bool { false }
+    fn is_canceled() -> bool {
+        false
+    }
     fn set() {}
     fn clear() {}
 }
 
 impl TpmPcr for TpmPlatform {
-    fn number_of_pcrs() -> u32 { 24 }
-    fn get_attributes(_pcr: u32) -> u32 { 0 }
-    fn get_initial_value(_pcr: u32, _alg: u16, _locality: u8, buffer: &mut [u8]) -> u16 {
-        for b in buffer.iter_mut() { *b = 0; }
+    fn number_of_pcrs() -> u32 {
+        24
+    }
+    fn get_attributes(_pcr: u32) -> u32 {
         0
     }
-    fn is_bank_default_active(_alg: u16) -> bool { true }
+    fn get_initial_value(_pcr: u32, _alg: u16, _locality: u8, buffer: &mut [u8]) -> u16 {
+        for b in buffer.iter_mut() {
+            *b = 0;
+        }
+        0
+    }
+    fn is_bank_default_active(_alg: u16) -> bool {
+        true
+    }
 }
 
 impl TpmInfo for TpmPlatform {
-    fn get_manufacturer_code() -> u32 { 0x474f4f47 } // "GOOG"
-    fn get_vendor_code(_index: i32) -> u32 { 0 }
-    fn get_vendor_type() -> u32 { 0 }
-    fn get_firmware_version_high() -> u32 { 1 }
-    fn get_firmware_version_low() -> u32 { 0 }
-    fn get_firmware_svn() -> u16 { 1 }
-    fn get_firmware_max_svn() -> u16 { 1 }
+    fn get_manufacturer_code() -> u32 {
+        0x474f4f47
+    } // "GOOG"
+    fn get_vendor_code(_index: i32) -> u32 {
+        0
+    }
+    fn get_vendor_type() -> u32 {
+        0
+    }
+    fn get_firmware_version_high() -> u32 {
+        1
+    }
+    fn get_firmware_version_low() -> u32 {
+        0
+    }
+    fn get_firmware_svn() -> u16 {
+        1
+    }
+    fn get_firmware_max_svn() -> u16 {
+        1
+    }
     fn get_spec_capability(data: &mut SpecCapabilityValue) {
         *data = SpecCapabilityValue {
             tpm_spec_level: 0,
@@ -125,26 +148,50 @@ impl TpmInfo for TpmPlatform {
 }
 
 impl TpmVirtualNv for TpmPlatform {
-    fn is_virtual_index(_handle: u32) -> bool { false }
-    fn read(_handle: u32, _offset: u32, _size: u32, _buffer: &mut [u8]) -> i32 { -1 }
-    fn read_public(_handle: u32, _buffer: &mut [u8]) -> u16 { 0x0080 } // TPM_RC_HANDLE
+    fn is_virtual_index(_handle: u32) -> bool {
+        false
+    }
+    fn read(_handle: u32, _offset: u32, _size: u32, _buffer: &mut [u8]) -> i32 {
+        -1
+    }
+    fn read_public(_handle: u32, _buffer: &mut [u8]) -> u16 {
+        0x0080
+    } // TPM_RC_HANDLE
     fn populate_info(_handle: u32, _info: *mut core::ffi::c_void) {}
-    fn cap_get_index(_handle: u32) -> u32 { 0 }
-    fn operation_accepts_virtual_handles(_handle: u32) -> bool { false }
+    fn cap_get_index(_handle: u32) -> u32 {
+        0
+    }
+    fn operation_accepts_virtual_handles(_handle: u32) -> bool {
+        false
+    }
 }
 
 impl TpmFail for TpmPlatform {
     fn fail(_function: Option<&str>, _line: i32, _location: u64, _code: i32) {}
-    fn in_failure_mode() -> bool { false }
-    fn get_code() -> u32 { 0 }
-    fn get_location() -> u64 { 0 }
-    fn get_function_name() -> Option<&'static str> { None }
-    fn get_line() -> u32 { 0 }
+    fn in_failure_mode() -> bool {
+        false
+    }
+    fn get_code() -> u32 {
+        0
+    }
+    fn get_location() -> u64 {
+        0
+    }
+    fn get_function_name() -> Option<&'static str> {
+        None
+    }
+    fn get_line() -> u32 {
+        0
+    }
 }
 
 impl TpmSecrets for TpmPlatform {
-    fn get_firmware_secret(_buffer: &mut [u8]) -> i32 { -1 }
-    fn get_firmware_svn_secret(_svn: u16, _buffer: &mut [u8]) -> i32 { -1 }
+    fn get_firmware_secret(_buffer: &mut [u8]) -> i32 {
+        -1
+    }
+    fn get_firmware_svn_secret(_svn: u16, _buffer: &mut [u8]) -> i32 {
+        -1
+    }
 }
 
 impl TpmControl for TpmPlatform {
@@ -153,7 +200,9 @@ impl TpmControl for TpmPlatform {
     fn set_tpm_firmware_hash(_hash: u32) {}
     fn set_tpm_firmware_svn(_svn: u16) {}
     fn set_physical_presence(_on: bool) {}
-    fn physical_presence_asserted() -> bool { true }
+    fn physical_presence_asserted() -> bool {
+        true
+    }
 }
 
 implement_tpm_clock!(TpmPlatform);

@@ -17,6 +17,7 @@ use util_misc::hexdump;
 
 // Use the platform implementation to ensure its symbols are linked.
 use tpm_platform as _;
+use tpm_platform::tpm_cc::TpmCC;
 
 unsafe extern "C" {
     fn ExecuteCommand(reqsize: u32, req: *const u8, rspsize: *mut u32, rsp: *mut *mut u8);
@@ -67,6 +68,11 @@ fn handle_ipc() -> Result<()> {
         if cmd_len == 0 {
             continue;
         }
+        if let Some(bytes) = cmd_buf.get(6..10) {
+            let val = TpmCC(u32::from_be_bytes(bytes.try_into().unwrap()));
+            pw_log::info!("TPM command: {}", val.as_str() as &str);
+        }
+
         hexdump(&cmd_buf[..cmd_len]);
 
         let mut rspsize = resp_buf.len() as u32;

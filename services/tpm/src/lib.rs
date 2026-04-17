@@ -3,4 +3,5 @@
 #![no_std]
 
 pub mod platform;
+pub mod tpm_cc;
 pub mod tpm_crypto;
