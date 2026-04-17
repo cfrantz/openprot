@@ -958,7 +958,7 @@ pub trait CryptoInterface {
     /// @param salt Key salt (diversification data for KDF).
     /// @param[out] key Destination blinded key struct.
     /// @return The result of the operation.
-    fn hw_backed_key(version: u32, salt: &u32, key: &mut BlindedKey) -> CryptoResult {
+    fn hw_backed_key(version: u32, salt: &[u32], key: &mut BlindedKey) -> CryptoResult {
         unimplemented!();
     }
     /// Returns the length that the blinded key will have once wrapped.

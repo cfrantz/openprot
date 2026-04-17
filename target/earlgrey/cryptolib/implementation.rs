@@ -595,7 +595,7 @@ impl CryptoInterface for OtCrypto {
         };
         result.into()
     }
-    fn hw_backed_key(version: u32, salt: &u32, key: &mut BlindedKey) -> CryptoResult {
+    fn hw_backed_key(version: u32, salt: &[u32], key: &mut BlindedKey) -> CryptoResult {
         let result =
             unsafe { otcrypto_hw_backed_key(version.into(), salt.as_ptr(), key.as_mut_ptr()) };
         result.into()
