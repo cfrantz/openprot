@@ -1,12 +1,13 @@
-use crypto::{
-    hash::TpmHash, implement_tpm_hash,
-};
-use tpm_types::*;
 use crate::tpm_crypto::NullCrypto;
+use crypto::{hash::TpmHash, implement_tpm_hash};
+use tpm_types::*;
 
-use crypto_traits::digest::{Digest, DigestInit, DigestUpdate, DigestFinal, Sha2_256, Sha2_384, Sha2_512};
-use crypto_client::sha2::{Sha2Context};
-
+use crypto_client::hmac::HmacContext;
+use crypto_client::sha2::Sha2Context;
+use crypto_traits::digest::{
+    Digest, DigestFinal, DigestInit, DigestUpdate, Sha2_256, Sha2_384, Sha2_512,
+};
+use crypto_traits::hmac::{HmacFinal, HmacInit, HmacSha256, HmacSha384, HmacSha512, HmacUpdate};
 
 const HASH_ALGS: usize = 3;
 const HASH_DEFINITIONS: [HashDef; HASH_ALGS + 1] = [
@@ -77,50 +78,133 @@ impl TpmHash for NullCrypto {
         state.state = ctx as usize;
         def.digest_size
     }
+
     fn hash_update(&self, state: &mut HashState, data: &[u8]) {
         let ctx = state.state as u32;
-        match state.hash_alg {
-            TpmAlgId::Sha2_256 => {
-                self.client.update(&Sha2Context::<Sha2_256>::from(ctx), data).expect("sha256_update");
+        match (state.ctx_type, state.hash_alg) {
+            (HashStateType::Hash, TpmAlgId::Sha2_256) => {
+                self.client
+                    .update(&Sha2Context::<Sha2_256>::from(ctx), data)
+                    .expect("sha256_update");
             }
-            TpmAlgId::Sha2_384 => {
-                self.client.update(&Sha2Context::<Sha2_384>::from(ctx), data).expect("sha384_update");
+            (HashStateType::Hash, TpmAlgId::Sha2_384) => {
+                self.client
+                    .update(&Sha2Context::<Sha2_384>::from(ctx), data)
+                    .expect("sha384_update");
             }
-            TpmAlgId::Sha2_512 => {
-                self.client.update(&Sha2Context::<Sha2_512>::from(ctx), data).expect("sha512_update");
+            (HashStateType::Hash, TpmAlgId::Sha2_512) => {
+                self.client
+                    .update(&Sha2Context::<Sha2_512>::from(ctx), data)
+                    .expect("sha512_update");
+            }
+            (HashStateType::Hmac, TpmAlgId::Sha2_256) => {
+                self.client
+                    .hmac_update(&HmacContext::<HmacSha256>::from(ctx), data)
+                    .expect("hmac256_update");
+            }
+            (HashStateType::Hmac, TpmAlgId::Sha2_384) => {
+                self.client
+                    .hmac_update(&HmacContext::<HmacSha384>::from(ctx), data)
+                    .expect("hmac384_update");
+            }
+            (HashStateType::Hmac, TpmAlgId::Sha2_512) => {
+                self.client
+                    .hmac_update(&HmacContext::<HmacSha512>::from(ctx), data)
+                    .expect("hmac512_update");
             }
             _ => {}
         }
     }
     fn hash_end(&self, state: &mut HashState, output: &mut [u8]) -> u16 {
         let ctx = state.state as u32;
-        let outlen = output.len();
-        match state.hash_alg {
+        let outlen = match state.hash_alg {
             TpmAlgId::Sha2_256 => {
-                let digest = self.client.finalize(Sha2Context::<Sha2_256>::from(ctx)).expect("sha256_final");
-                output.copy_from_slice(&digest.digest()[..outlen]);
+                let digest = self
+                    .client
+                    .finalize(Sha2Context::<Sha2_256>::from(ctx))
+                    .expect("sha256_final");
+                min_copy(output, digest.digest())
             }
             TpmAlgId::Sha2_384 => {
-                let digest = self.client.finalize(Sha2Context::<Sha2_384>::from(ctx)).expect("sha384_final");
-                output.copy_from_slice(&digest.digest()[..outlen]);
+                let digest = self
+                    .client
+                    .finalize(Sha2Context::<Sha2_384>::from(ctx))
+                    .expect("sha384_final");
+                min_copy(output, digest.digest())
             }
             TpmAlgId::Sha2_512 => {
-                let digest = self.client.finalize(Sha2Context::<Sha2_512>::from(ctx)).expect("sha512_final");
-                output.copy_from_slice(&digest.digest()[..outlen]);
+                let digest = self
+                    .client
+                    .finalize(Sha2Context::<Sha2_512>::from(ctx))
+                    .expect("sha512_final");
+                min_copy(output, digest.digest())
             }
             _ => return 0,
-        }
-
+        };
         state.ctx_type = HashStateType::Empty;
         state.state = 0;
         outlen as u16
     }
-    fn hmac_start(&self, _state: &mut HmacState, _alg: TpmAlgId, _key: &[u8]) -> u16 {
-        0
+
+    fn hmac_start(&self, state: &mut HmacState, alg: TpmAlgId, key: &[u8]) -> u16 {
+        pw_log::info!("hmac_start: key={}", key.len() as usize);
+        let ctx = match alg {
+            TpmAlgId::Sha2_256 => u32::from(
+                self.client
+                    .hmac_init(&HmacSha256, key)
+                    .expect("hmac256_init"),
+            ),
+            TpmAlgId::Sha2_384 => u32::from(
+                self.client
+                    .hmac_init(&HmacSha384, key)
+                    .expect("hmac384_init"),
+            ),
+            TpmAlgId::Sha2_512 => u32::from(
+                self.client
+                    .hmac_init(&HmacSha512, key)
+                    .expect("hmac512_init"),
+            ),
+            _ => return 0,
+        };
+        let def = self.hash_def(alg);
+        state.hash_state.hash_alg = alg;
+        state.hash_state.def = def;
+        state.hash_state.ctx_type = HashStateType::Hmac;
+        state.hash_state.state = ctx as usize;
+        def.digest_size
     }
-    fn hmac_end(&self, _state: &mut HmacState, _output: &mut [u8]) -> u16 {
-        0
+
+    fn hmac_end(&self, state: &mut HmacState, output: &mut [u8]) -> u16 {
+        let ctx = state.hash_state.state as u32;
+        let outlen = match state.hash_state.hash_alg {
+            TpmAlgId::Sha2_256 => {
+                let digest = self
+                    .client
+                    .hmac_finalize(HmacContext::<HmacSha256>::from(ctx))
+                    .expect("hmac256_final");
+                min_copy(output, digest.digest())
+            }
+            TpmAlgId::Sha2_384 => {
+                let digest = self
+                    .client
+                    .hmac_finalize(HmacContext::<HmacSha384>::from(ctx))
+                    .expect("hmac384_final");
+                min_copy(output, digest.digest())
+            }
+            TpmAlgId::Sha2_512 => {
+                let digest = self
+                    .client
+                    .hmac_finalize(HmacContext::<HmacSha512>::from(ctx))
+                    .expect("hmac512_final");
+                min_copy(output, digest.digest())
+            }
+            _ => return 0,
+        };
+        state.hash_state.ctx_type = HashStateType::Empty;
+        state.hash_state.state = 0;
+        outlen as u16
     }
+
     fn hash_def(&self, alg: TpmAlgId) -> &'static HashDef {
         match alg {
             TpmAlgId::Sha2_256 => &HASH_DEFINITIONS[0],
@@ -142,6 +226,5 @@ impl TpmHash for NullCrypto {
     fn hash_export_state(&self, _state: &HashState, _external_state: &mut ExportHashState) {}
     fn hash_import_state(&self, _state: &mut HashState, _external_state: &ExportHashState) {}
 }
-
 
 implement_tpm_hash!(NullCrypto);
