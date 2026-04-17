@@ -21,6 +21,7 @@ rust_library(
     srcs = [
         "crc32.rs",
         "hexdump.rs",
+        "hard.rs",
         "lib.rs",
         "mubi.rs",
         "perso_tlv.rs",
@@ -29,8 +30,14 @@ rust_library(
     edition = "2024",
     #target_compatible_with = TARGET_COMPATIBLE_WITH,
     deps = [
+        ":hard",
         "@pigweed//pw_log/rust:pw_log",
         "@pigweed//pw_status/rust:pw_status",
         "@rust_crates//:zerocopy",
     ],
+)
+
+cc_library(
+    name = "hard",
+    srcs = ["hard.c"],
 )
