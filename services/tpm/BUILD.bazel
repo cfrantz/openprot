@@ -15,7 +15,7 @@ rust_library(
         "src/platform/nv.rs",
         "src/platform/lifecycle.rs",
         "src/tpm_crypto/mod.rs",
-        #"src/tpm_crypto/ecc.rs",
+        "src/tpm_crypto/ecc.rs",
         "src/tpm_crypto/rand.rs",
         "src/tpm_crypto/hash.rs",
         "src/tpm_crypto/sym.rs",
