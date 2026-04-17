@@ -6,7 +6,7 @@ use otcrypto::{
 };
 use paste::paste;
 use pw_status::{Error, Result};
-use zerocopy::FromBytes;
+use zerocopy::{FromBytes, IntoBytes};
 
 macro_rules! keypair {
     ($algo:ident, $publen:expr, $privlen:expr, $blindlen:expr) => {
@@ -54,6 +54,14 @@ macro_rules! keypair {
                     for x in this.data.iter_mut() { *x=0; }
                     Ok((this, rest))
                 }
+
+                pub fn calculate_checksum(&self) -> u32 {
+                    let mut checksum = util_misc::Crc32::new();
+                    checksum.add32(u32::from(self.key.key_mode));
+                    checksum.add32(u32::from(self.key.key_length));
+                    checksum.add(&self.data);
+                    checksum.finalize()
+                }
             }
 
 
@@ -96,6 +104,28 @@ macro_rules! keypair {
                         data: [0u8; $blindlen],
                     }
                 }
+
+                pub fn new_hw(key_mode: KeyMode, version: u32, salt: &[u32]) -> Self {
+                    let mut k = Self::new(key_mode, HardenedBool::True, HardenedBool::False, KeySecurityLevel::Low);
+                    k.data[0..4].copy_from_slice(version.as_bytes());
+                    k.data[4..32].copy_from_slice(salt.as_bytes());
+                    k.key.keyblob_length = 32;
+
+                    let mut checksum = util_misc::Crc32::new();
+                    checksum.add32(u32::from(k.key.config.version));
+                    checksum.add32(u32::from(k.key.config.key_mode));
+                    checksum.add32(u32::from(k.key.config.key_length));
+                    checksum.add32(u32::from(k.key.config.hw_backed));
+                    checksum.add32(u32::from(k.key.config.exportable));
+                    checksum.add32(u32::from(k.key.config.security_level));
+                    checksum.add32(u32::from(k.key.keyblob_length));
+                    for k in k.data[..(k.key.keyblob_length as usize)].chunks(4) {
+                        checksum.add32(u32::from_le_bytes(k.try_into().unwrap()));
+                    }
+                    k.key.checksum = checksum.finalize();
+                    k
+                }
+
                 pub fn new_mutref(buf: &mut [u8], key_mode: KeyMode, hw_backed: HardenedBool, exportable: HardenedBool, security_level: KeySecurityLevel) -> Result<(&mut Self, &mut [u8])> {
                     let (this, rest) = Self::mut_from_prefix(buf).map_err(|_| Error::Internal)?;
                     this.key = BlindedKey {

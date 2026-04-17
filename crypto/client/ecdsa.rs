@@ -11,13 +11,16 @@ use crypto_traits::NoParam;
 use otcrypto::{
     DiceKeymgrDiversifier, HardenedBool, KeyConfig, KeyMode, KeySecurityLevel, LibVersion,
 };
-use zerocopy::{FromZeros, IntoBytes};
+use zerocopy::{FromBytes, FromZeros, Immutable, IntoBytes, KnownLayout};
 
 impl asymmetric::Algorithm<CryptoClient> for asymmetric::EcdsaP256 {}
 
 pub struct SoftwareKey;
+
+#[derive(Clone, Copy, FromBytes, IntoBytes, Immutable, KnownLayout)]
 pub struct HardwareKey {
-    pub salt: [u8; 32],
+    pub version: u32,
+    pub salt: [u32; 7],
 }
 
 impl asymmetric::AlgoParams<CryptoClient, asymmetric::EcdsaP256> for SoftwareKey {
@@ -35,9 +38,9 @@ impl asymmetric::AlgoParams<CryptoClient, asymmetric::EcdsaP256> for HardwareKey
     type PublicKey = EcdsaP256PublicKey;
 }
 impl asymmetric::HardwareKey<CryptoClient, asymmetric::EcdsaP256> for HardwareKey {
-    type Salt = [u8; 32];
+    type Salt = [u32; 7];
     fn new(salt: Self::Salt) -> HardwareKey {
-        HardwareKey { salt }
+        HardwareKey { version: 0, salt }
     }
 }
 
@@ -60,6 +63,34 @@ impl asymmetric::KeyPairGen<asymmetric::EcdsaP256, SoftwareKey> for CryptoClient
                 exportable: HardenedBool::True,
                 security_level: KeySecurityLevel::Low,
             },
+            /*salt=*/ None,
+            private.as_mut_bytes(),
+            public.as_mut_bytes(),
+        )?;
+        Ok((private, public))
+    }
+}
+
+impl asymmetric::KeyPairGen<asymmetric::EcdsaP256, HardwareKey> for CryptoClient {
+    fn key_pair_gen(
+        &self,
+        _algorithm: &asymmetric::EcdsaP256,
+        params: &HardwareKey,
+    ) -> Result<(EcdsaP256PrivateKey, EcdsaP256PublicKey), Self::Error> {
+        let mut private = EcdsaP256PrivateKey::new_zeroed();
+        let mut public = EcdsaP256PublicKey::new_zeroed();
+        util::asymmetric::keygen(
+            self,
+            Opcode::ECDSA_P256_KEYGEN,
+            &KeyConfig {
+                version: LibVersion::_1,
+                key_mode: KeyMode::EcdsaP256,
+                key_length: EcdsaP256PrivateKey::PRIVATE_KEY_SIZE as u32,
+                hw_backed: HardenedBool::True,
+                exportable: HardenedBool::False,
+                security_level: KeySecurityLevel::Low,
+            },
+            /*salt=*/ Some(params.as_bytes()),
             private.as_mut_bytes(),
             public.as_mut_bytes(),
         )?;
@@ -112,6 +143,25 @@ impl asymmetric::Verify<EcdsaP256PublicKey> for CryptoClient {
     }
 }
 
+impl asymmetric::ShareSecret<EcdsaP256PrivateKey, EcdsaP256PublicKey> for CryptoClient {
+    type Secret = EcdsaP256PrivateKey;
+    fn share_secret(
+        &self,
+        secret_key: &EcdsaP256PrivateKey,
+        public_key: &EcdsaP256PublicKey,
+    ) -> Result<Self::Secret, Self::Error> {
+        let mut secret = EcdsaP256PrivateKey::new_zeroed();
+        util::asymmetric::share_secret(
+            self,
+            Opcode::ECDH_P256_KEY_AGREEMENT,
+            secret_key.as_bytes(),
+            public_key.as_bytes(),
+            secret.as_mut_bytes(),
+        )?;
+        Ok(secret)
+    }
+}
+
 #[derive(Clone)]
 pub struct DiceKey {
     pub diversifier: DiceKeymgrDiversifier,
@@ -152,6 +202,7 @@ impl asymmetric::KeyPairGen<asymmetric::EcdsaP256, DiceKey> for CryptoClient {
             self,
             Opcode::DICE_P256_KEYGEN,
             &private.key.config.clone(),
+            None,
             private.as_mut_bytes(),
             public.as_mut_bytes(),
         )?;

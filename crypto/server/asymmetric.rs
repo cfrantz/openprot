@@ -1,5 +1,9 @@
 use crypto_common::Opcode;
-use otcrypto::{BlindedKey, CryptoResult, HardenedBool, HashDigest, KeyConfig, UnblindedKey};
+use otcrypto::{
+    BlindedKey, CryptoResult, HardenedBool, HashDigest, KeyConfig, KeyMode, KeySecurityLevel,
+    LibVersion, UnblindedKey,
+};
+use otcrypto::{CryptoInterface, OtCrypto};
 use pw_status::{Error, Result};
 use zerocopy::FromBytes;
 
@@ -29,9 +33,9 @@ pub fn key_pair_gen<'a, GEN>(
 where
     GEN: Fn(&mut BlindedKey, &mut UnblindedKey) -> CryptoResult,
 {
-    let (pubsz, _privsz, blindsz) = keysize(op);
+    let (pubsz, privsz, blindsz) = keysize(op);
 
-    let (config, _rest) = KeyConfig::read_from_prefix(req).map_err(|_| Error::Internal)?;
+    let (config, req_rest) = KeyConfig::read_from_prefix(req).map_err(|_| Error::Internal)?;
     let hw_backed = config.hw_backed == HardenedBool::True;
     // TODO: verify config.key_length against privsz.
     let len = {
@@ -39,31 +43,27 @@ where
         public.key_mode = config.key_mode;
         public.key_length = pubsz as u32;
         let (pub_key_material, rest) = rest.split_at_mut(pubsz);
+        let (private, rest) = BlindedKey::mut_from_prefix(rest).map_err(|_| Error::Internal)?;
+        let (priv_key_material, _rest) = rest.split_at_mut(blindsz);
 
-        let private = if hw_backed {
+        if hw_backed {
             // Hardware backed keys are specified in the request.
-            let (private, rest) = BlindedKey::mut_from_prefix(req).map_err(|_| Error::Internal)?;
+            let (version, req_rest) =
+                <u32>::ref_from_prefix(req_rest).map_err(|_| Error::Internal)?;
+            let (salt, _) = <[u32; 7]>::ref_from_prefix(req_rest).map_err(|_| Error::Internal)?;
             private.config = config;
-            private.keyblob_length = blindsz as u32;
-            let (priv_key_material, _rest) = rest.split_at_mut(blindsz);
-            private.with_key_material(priv_key_material)
+            private.keyblob_length = privsz as u32;
+            priv_key_material.fill(0);
+            OtCrypto::hw_backed_key(*version, salt, private.with_key_material(priv_key_material))?;
         } else {
             // Softwares backed keys are generated into the response.
-            let (private, rest) = BlindedKey::mut_from_prefix(rest).map_err(|_| Error::Internal)?;
             private.config = config;
             private.keyblob_length = blindsz as u32;
-            let (priv_key_material, _rest) = rest.split_at_mut(blindsz);
-            private.with_key_material(priv_key_material)
-        };
+            private.with_key_material(priv_key_material);
+        }
 
         generator(private, public.with_key_material(pub_key_material))?;
-        core::mem::size_of::<UnblindedKey>()
-            + pubsz
-            + if hw_backed {
-                0
-            } else {
-                core::mem::size_of::<BlindedKey>() + blindsz
-            }
+        core::mem::size_of::<UnblindedKey>() + pubsz + core::mem::size_of::<BlindedKey>() + blindsz
     };
     Ok(&rsp[..len])
 }
@@ -125,5 +125,45 @@ where
         )?;
         core::mem::size_of::<HardenedBool>()
     };
+    Ok(&rsp[..len])
+}
+
+pub fn share_secret<'a, AGREEMENT>(
+    op: Opcode,
+    req: &mut [u8],
+    rsp: &'a mut [u8],
+    agreement: AGREEMENT,
+) -> Result<&'a [u8]>
+where
+    AGREEMENT: Fn(&BlindedKey, &UnblindedKey, &mut BlindedKey) -> CryptoResult,
+{
+    let (pubsz, privsz, blindsz) = keysize(op);
+    // TODO: verify private.keyblob_size with blindsz
+    // TODO: verify private.config.key_size with privsz
+    let (secret_key, rest) = BlindedKey::mut_from_prefix(req).map_err(|_| Error::Internal)?;
+    let (secret_key_material, rest) = rest.split_at_mut(blindsz);
+    let (public_key, rest) = UnblindedKey::mut_from_prefix(rest).map_err(|_| Error::Internal)?;
+    let (public_key_material, _rest) = rest.split_at_mut(pubsz);
+
+    let (secret, rest) = BlindedKey::mut_from_prefix(rsp).map_err(|_| Error::Internal)?;
+    let (secret_data, _rest) = rest.split_at_mut(blindsz);
+    secret.config = KeyConfig {
+        version: LibVersion::_1,
+        key_mode: KeyMode::EcdsaP256,
+        key_length: privsz as u32,
+        hw_backed: HardenedBool::False,
+        exportable: HardenedBool::True,
+        security_level: KeySecurityLevel::Low,
+    };
+    secret.keyblob_length = blindsz as u32;
+
+    pw_log::info!("key_agreement");
+    agreement(
+        secret_key.with_key_material(secret_key_material),
+        public_key.with_key_material(public_key_material),
+        secret.with_key_material(secret_data),
+    )?;
+    pw_log::info!("key_agreement done");
+    let len = core::mem::size_of::<BlindedKey>() + blindsz;
     Ok(&rsp[..len])
 }

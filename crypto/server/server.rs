@@ -18,8 +18,8 @@ pub struct Server {
 
 impl Server {
     pub fn exec<'a>(&mut self, req: &mut [u8], rsp: &'a mut [u8]) -> Result<&'a [u8], Error> {
-        pw_log::info!("request:");
-        util_misc::hexdump(req);
+        //pw_log::info!("request:");
+        //util_misc::hexdump(req);
         let (&mut opcode, req) = Opcode::mut_from_prefix(req).map_err(|_| Error::Internal)?;
         match opcode {
             Opcode::AES_ENCRYPT => symmetric::aes_encrypt_decrypt(opcode, req, rsp),
@@ -40,7 +40,9 @@ impl Server {
             Opcode::DICE_P256_SIGN => asymmetric::sign(opcode, req, rsp, OtCrypto::dice_p256_sign),
 
             //Opcode::ECDH_P256_KEYGEN => Err(Error::Unimplemented),
-            //Opcode::ECDH_P256_KEY_AGREEMENT => Err(Error::Unimplemented),
+            Opcode::ECDH_P256_KEY_AGREEMENT => {
+                asymmetric::share_secret(opcode, req, rsp, OtCrypto::ecdh_p256)
+            }
 
             //Opcode::ECDSA_P384_KEYGEN => p384::Ops::key_pair_gen(req, rsp),
             //Opcode::ECDSA_P384_SIGN => p384::Ops::sign(req, rsp),

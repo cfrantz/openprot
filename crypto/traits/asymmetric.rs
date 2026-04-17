@@ -72,3 +72,8 @@ pub trait Verify<K: ?Sized>: ErrorType {
         signature: &Self::Signature,
     ) -> Result<bool, Self::Error>;
 }
+
+pub trait ShareSecret<SK: ?Sized, PK: ?Sized>: ErrorType {
+    type Secret;
+    fn share_secret(&self, secret_key: &SK, public_key: &PK) -> Result<Self::Secret, Self::Error>;
+}
