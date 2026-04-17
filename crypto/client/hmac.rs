@@ -8,7 +8,8 @@ use core::marker::PhantomData;
 use otcrypto::{HashMode, KeyMode};
 use paste::paste;
 use pw_status::Result;
-use zerocopy::{FromBytes, FromZeros, IntoBytes};
+//use zerocopy::{FromBytes, FromZeros, IntoBytes};
+use zerocopy::{FromBytes, FromZeros};
 
 pub struct HmacContext<T> {
     index: u32,
@@ -26,6 +27,20 @@ fn hash_mode_to_key_mode(mode: HashMode) -> KeyMode {
 
 macro_rules! hmac_impl {
     ($algo:ident, $mode:expr, $op_prefix:ident, $bytesize:expr) => { paste! {
+        impl From<u32> for HmacContext<$algo> {
+            fn from(index: u32) -> Self {
+                Self {
+                    index,
+                    _phantom: PhantomData,
+                }
+            }
+        }
+
+        impl From<HmacContext<$algo>> for u32 {
+            fn from(ctx: HmacContext<$algo>) -> u32 {
+                ctx.index
+            }
+        }
 
         pub struct [<$algo Key>](pub [u8; $bytesize]);
 
@@ -54,11 +69,12 @@ macro_rules! hmac_impl {
         }
 
         impl<'a> HmacInit<'a, $algo> for CryptoClient {
-            type Key = [<$algo Key>];
+            //type Key = [<$algo Key>];
             type Context = HmacContext<$algo>;
-            fn hmac_init(&self, _algorithm: &$algo, key_wrapper: &Self::Key) -> Result<Self::Context> {
+            fn hmac_init(&self, _algorithm: &$algo, key_wrapper: &[u8]) -> Result<Self::Context> {
                 use otcrypto::{BlindedKey, KeyConfig, LibVersion, HardenedBool, KeySecurityLevel};
-                let key_material = &key_wrapper.0;
+                use util_misc::Crc32;
+                let key_material = key_wrapper;
                 let blinded_key = BlindedKey {
                     config: KeyConfig {
                         version: LibVersion::_1,
@@ -79,6 +95,17 @@ macro_rules! hmac_impl {
                 bk.with_internal_key_material();
                 rest[..key_material.len()].copy_from_slice(key_material);
                 for x in &mut rest[key_material.len()..key_material.len()*2] { *x = 0; }
+
+                let mut checksum = Crc32::new();
+                checksum.add32(u32::from(bk.config.version));
+                checksum.add32(u32::from(bk.config.key_mode));
+                checksum.add32(u32::from(bk.config.key_length));
+                checksum.add32(u32::from(bk.config.hw_backed));
+                checksum.add32(u32::from(bk.config.exportable));
+                checksum.add32(u32::from(bk.config.security_level));
+                checksum.add32(u32::from(bk.keyblob_length));
+                checksum.add(&rest[..key_material.len()*2]);
+                bk.checksum = checksum.finalize();
 
                 let index = util::hmac::init(self, Opcode::[<HMAC_ $op_prefix _INIT>], &buf[..core::mem::size_of::<BlindedKey>() + key_material.len()*2])?;
                 Ok(HmacContext {
@@ -102,8 +129,9 @@ macro_rules! hmac_impl {
                     self,
                     Opcode::[<HMAC_ $op_prefix _FINAL>],
                     context.index,
-                    tag.as_mut_bytes(),
+                    &mut tag.data,
                 )?;
+                tag.mode = $mode;
                 Ok(tag)
             }
         }

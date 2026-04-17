@@ -26,19 +26,19 @@ impl<const N: usize> HmacContexts<N> {
         Err(Error::ResourceExhausted)
     }
 
-    pub fn init<'a>(&mut self, _op: Opcode, req: &[u8], rsp: &'a mut [u8]) -> Result<&'a [u8]> {
+    pub fn init<'a>(&mut self, _op: Opcode, req: &mut [u8], rsp: &'a mut [u8]) -> Result<&'a [u8]> {
         // HMAC key size and hash mode are determined by the opcode or the key itself in otcrypto.
         // For now, assume req contains the raw key material.
         // Note: otcrypto's hmac_init takes a BlindedKey.
         // We'll need a way to construct a BlindedKey from raw bytes if the client sends raw bytes.
 
         // TODO: This assumes the client sends a BlindedKey structure.
-        let (key, _rest) = BlindedKey::ref_from_prefix(req).map_err(|_| Error::Internal)?;
+        let (key, material) = BlindedKey::mut_from_prefix(req).map_err(|_| Error::Internal)?;
 
         let len = {
             let mut context = HmacContext::new_zeroed();
             let (index, _) = u32::mut_from_prefix(rsp).map_err(|_| Error::Internal)?;
-            OtCrypto::hmac_init(&mut context, key)?;
+            OtCrypto::hmac_init(&mut context, key.with_key_material(material))?;
             *index = self.alloc(context)?;
             core::mem::size_of::<u32>()
         };

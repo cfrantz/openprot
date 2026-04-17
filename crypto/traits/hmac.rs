@@ -16,9 +16,9 @@ where
     Self: Backend,
     A: Algorithm<Self>,
 {
-    type Key;
+    //type Key;
     type Context;
-    fn hmac_init(&self, algo: &A, key: &Self::Key) -> Result<Self::Context, Self::Error>;
+    fn hmac_init(&self, algo: &A, key: &[u8]) -> Result<Self::Context, Self::Error>;
 }
 
 pub trait HmacUpdate<Context: ?Sized>: ErrorType {
