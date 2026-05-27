@@ -13,8 +13,9 @@ rust_library(
     crate_name = "services_flash_opcode",
     edition = "2024",
     deps = [
-        "//util/types",
-        "@rust_crates//:zerocopy",
+        "//services/flash/wire:flash_wire",
+        "//hal/blocking/flash:driver",
+        "//util/error",
     ],
 )
 
@@ -55,3 +56,4 @@ rust_library(
         "@rust_crates//:zerocopy",
     ],
 )
+

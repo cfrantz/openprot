@@ -1,0 +1,22 @@
+# Licensed under the Apache-2.0 license
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+
+package(default_visibility = ["//visibility:public"])
+
+rust_library(
+    name = "flash_wire",
+    srcs = ["lib.rs"],
+    crate_name = "flash_wire",
+    edition = "2024",
+    deps = [
+        "//util/types",
+        "@rust_crates//:zerocopy",
+    ],
+)
+
+rust_test(
+    name = "flash_wire_test",
+    crate = ":flash_wire",
+)

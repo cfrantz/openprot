@@ -2,29 +2,47 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Shared flash IPC opcodes and data structures.
+//!
+//! This crate re-exports all wire types from `flash_wire` and adds the
+//! HAL-aware conversion helpers that depend on `hal_flash_driver` and
+//! `util_error`.
 
 #![no_std]
 
-use util_types::Opcode;
-use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
+pub use flash_wire::*;
 
-/// IPC opcode for erasing a flash block.
-pub const IPC_OP_FLASH_ERASE: Opcode = Opcode::new(*b"FLET");
-/// IPC opcode for programming flash.
-pub const IPC_OP_FLASH_PROGRAM: Opcode = Opcode::new(*b"FLWR");
-/// IPC opcode for reading from flash.
-pub const IPC_OP_FLASH_READ: Opcode = Opcode::new(*b"FLRD");
-/// IPC opcode for retrieving flash information.
-pub const IPC_OP_FLASH_GET_INFO: Opcode = Opcode::new(*b"FLIN");
+use hal_flash_driver::FlashAddress;
+use util_error::ErrorCode;
 
-/// Information about the flash device.
-#[derive(FromBytes, Immutable, IntoBytes, KnownLayout)]
-#[repr(C)]
-pub struct FlashInfo {
-    /// The size of a single flash page in bytes.
-    pub page_size: u32,
-    /// The total size of the flash in bytes.
-    pub total_size: u32,
-    /// A bitmap of supported erase block sizes.
-    pub erasable_sizes_bitmap: u32,
+// ---------------------------------------------------------------------------
+// FlashAddress <-> WireAddress conversions
+// ---------------------------------------------------------------------------
+
+impl From<FlashAddress> for WireAddress {
+    fn from(a: FlashAddress) -> Self {
+        WireAddress::new(a.device_id(), a.offset())
+    }
+}
+
+impl From<WireAddress> for FlashAddress {
+    fn from(w: WireAddress) -> Self {
+        FlashAddress::new(w.device_id, w.offset)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Ergonomic error-response constructor that accepts ErrorCode
+// ---------------------------------------------------------------------------
+
+/// Extension trait that adds an `ErrorCode`-typed constructor to
+/// [`FlashResponseHeader`].  Lives here so that `flash_wire` stays free of the
+/// `util_error` / Pigweed dependency.
+pub trait FlashResponseHeaderExt {
+    fn from_error(err: ErrorCode) -> Self;
+}
+
+impl FlashResponseHeaderExt for FlashResponseHeader {
+    fn from_error(err: ErrorCode) -> Self {
+        FlashResponseHeader::error(u32::from(err))
+    }
 }
