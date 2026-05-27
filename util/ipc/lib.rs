@@ -55,7 +55,12 @@ impl IpcChannel {
             let mut offset = 0usize;
 
             for item in request.iter() {
-                let sz = offset + item.len();
+                let Some(sz) = offset.checked_add(item.len()) else {
+                    return Err(util_error::KERNEL_ERROR_OUT_OF_RANGE);
+                };
+                if sz > buffer.len() {
+                    return Err(util_error::KERNEL_ERROR_OUT_OF_RANGE);
+                }
                 buffer[offset..sz].copy_from_slice(item);
                 offset = sz;
             }
@@ -66,14 +71,18 @@ impl IpcChannel {
             };
             let rsplen = syscall::channel_transact(self.0, req, &mut buffer, deadline)
                 .map_err(ErrorCode::kernel_error)?;
+            if rsplen > buffer.len() {
+                return Err(util_error::IPC_ERROR_RSP_TOO_LARGE);
+            }
 
             offset = 0usize;
             let rsp = &buffer[..rsplen];
             for item in response.iter_mut() {
-                let sz = offset + item.len();
-                // TODO: how to handle an incomplete response?.
+                let Some(sz) = offset.checked_add(item.len()) else {
+                    return Err(util_error::KERNEL_ERROR_OUT_OF_RANGE);
+                };
                 if sz > rsp.len() {
-                    break;
+                    return Err(util_error::IPC_ERROR_RSP_BAD_LEN);
                 }
                 item.copy_from_slice(&rsp[offset..sz]);
                 offset = sz;
