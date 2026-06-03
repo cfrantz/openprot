@@ -5,8 +5,9 @@
 #![no_main]
 #![allow(dead_code)]
 
-use pw_status::{Error, Result, StatusCode};
+use pw_status::{Result, StatusCode};
 use test_usb_codegen::{handle, signals};
+use userspace::syscall::Signals;
 use userspace::time::Instant;
 use userspace::{entry, syscall};
 
@@ -122,7 +123,31 @@ fn handle_usb() -> Result<()> {
     let mut ep0 = usb_stack::SimpleEp0::new();
     let mut cdc_acm = CdcAcm::<256, 256>::new(CDC_BUILDER);
 
+    syscall::wait_group_add(
+        handle::USB_WAIT_GROUP,
+        handle::USBDEV_INTERRUPTS,
+        signals::USBDEV_PKT_RECEIVED
+            | signals::USBDEV_PKT_SENT
+            | signals::USBDEV_DISCONNECTED
+            | signals::USBDEV_HOST_LOST
+            | signals::USBDEV_LINK_RESET
+            | signals::USBDEV_LINK_SUSPEND
+            | signals::USBDEV_LINK_RESUME
+            | signals::USBDEV_AV_OUT_EMPTY
+            | signals::USBDEV_RX_FULL
+            | signals::USBDEV_AV_OVERFLOW
+            | signals::USBDEV_RX_CRC_ERR
+            | signals::USBDEV_RX_PID_ERR
+            | signals::USBDEV_RX_BITSTUFF_ERR
+            | signals::USBDEV_FRAME
+            | signals::USBDEV_AV_SETUP_EMPTY,
+        handle::USBDEV_INTERRUPTS as usize,
+    )?;
+
     loop {
+        /*
+         * Waiting directly on USBDEV_INTERRUPTS works
+         *
         let wait_return = syscall::object_wait(
             handle::USBDEV_INTERRUPTS,
             signals::USBDEV_PKT_RECEIVED
@@ -142,11 +167,22 @@ fn handle_usb() -> Result<()> {
                 | signals::USBDEV_AV_SETUP_EMPTY,
             Instant::MAX,
         )?;
+        */
 
-        if wait_return.user_data != 0 {
-            pw_log::error!("Incorrect WaitReturn values");
-            return Err(Error::Unknown);
-        }
+        let wait_return =
+            syscall::object_wait(handle::USB_WAIT_GROUP, Signals::READABLE, Instant::MAX)?;
+
+        let wakeup = wait_return.user_data as u32;
+        pw_log::error!(
+            "wait return: {:08x} on object {}",
+            wait_return.pending_signals.bits() as u32,
+            wakeup as u32,
+        );
+
+        //if wait_return.user_data != 0 {
+        //    pw_log::error!("Incorrect WaitReturn values");
+        //    return Err(Error::Unknown);
+        //}
 
         let _ = syscall::interrupt_ack(handle::USBDEV_INTERRUPTS, wait_return.pending_signals);
         while let Some(event) = usb.poll() {
