@@ -20,18 +20,22 @@ local_path_override(
     path = "third_party/caliptra",
 )
 
-git_override(
+#git_override(
+#    module_name = "pigweed",
+#    commit = "7882c537d21171b0e9641a132842a373382a78c3",
+#    patch_args = ["-p1"],
+#    patches = [
+#        # Allow integration_tests to build for armv7-m / armv7e-m so the
+#        # AST10x0 unittest_runner can use it.
+#        "//third_party/pigweed:integration_tests_armv7m.patch",
+#        # Stage .bin alongside .elf in system_image_test runfiles.
+#        "//third_party/pigweed:system_image_test_bin_runfiles.patch",
+#    ],
+#    remote = "https://pigweed.googlesource.com/pigweed/pigweed",
+#)
+local_path_override(
     module_name = "pigweed",
-    commit = "eba5cba319cd5752c4d5e16d7bc3aedb0c8460b3",  # roll:pigweed
-    patch_args = ["-p1"],
-    patches = [
-        # Allow integration_tests to build for armv7-m / armv7e-m so the
-        # AST10x0 unittest_runner can use it.
-        "//third_party/pigweed:integration_tests_armv7m.patch",
-        # Stage .bin alongside .elf in system_image_test runfiles.
-        "//third_party/pigweed:system_image_test_bin_runfiles.patch",
-    ],
-    remote = "https://pigweed.googlesource.com/pigweed/pigweed",
+    path = "/usr/local/google/home/cfrantz/src/pw/pw-main",
 )
 
 git_override(
