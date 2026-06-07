@@ -2745,7 +2745,7 @@
           "@@pigweed+//third_party/crates_io/crates_no_std/Cargo.toml": "830c5731bf64fb8d82e583e8a0cdc21ceba2d7322fe42a7d07ced3ebeb22ad33",
           "@@pigweed+//third_party/crates_io/crates_std/Cargo.lock": "7948eda7d994e1a8f3bf9711fd16130652beef5f3b717873d3f09ca8eb181aed",
           "@@pigweed+//third_party/crates_io/crates_std/Cargo.toml": "14cf1ed88a8394cf3399abd9719268cdc99460a69047417e99b0ec8e7fac05bc",
-          "@@zfmt+//Cargo.lock": "69bcdd13dfe94120674e75550d6be966372698801b70b6fa6c97ff6a090f3039",
+          "@@zfmt+//Cargo.lock": "3f00b2efe54f0fd3354cde15982f514ab1dc39c8a4fd47d3cc89983dc251b3e8",
           "@@zfmt+//zfmt-macro/Cargo.toml": "8da70e46a20853d51a83c1ec922eacd874784c8d5f21a926cd85985b5b1abeb6"
         },
         "recordedDirentsInputs": {},
