@@ -67,5 +67,4 @@ The following modules are defined in this crate:
 | :--- | :--- | :--- | :--- |
 | `KERNEL_ERROR` | `0x4b45` | `KE` | Kernel-specific error codes (see [kernel.rs](kernel.rs)). |
 | `FLASH_GENERIC` | `0x464c` | `FL` | Generic flash and SFDP errors (see [flash.rs](flash.rs)). |
-| `FLASH_OPENTITAN`| `0x464f` | `FO` | OpenTitan-specific flash errors (see [flash.rs](flash.rs)). |
 | `IPC_ERROR` | `0x4943` | `IC` | IPC-specific error codes (see [ipc.rs](ipc.rs)). |
