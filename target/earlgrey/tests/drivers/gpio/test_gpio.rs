@@ -70,10 +70,123 @@ fn test_gpio_basic() -> Result<()> {
     Ok(())
 }
 
+fn test_gpio_constants() -> Result<()> {
+    let mut gpio = unsafe { EarlGreyGpio::new() };
+
+    // Configure Pin 1 as input, connected to ConstantZero
+    pw_log::info!("Configuring Pin 1 as input connected to ConstantZero");
+    gpio.configure(
+        GpioPin::Pin1.into(),
+        EarlGreyPinConfig {
+            is_input: true,
+            is_output: false,
+            input_filter: false,
+            pad: Some(Pad::ConstantZero),
+            pull: Pull::None,
+        },
+    )
+    .map_err(|_| pw_status::Error::Internal)?;
+
+    // Read Pin 1, should be low (0)
+    let input = gpio.read_input().map_err(|_| pw_status::Error::Internal)?;
+    if input.contains(GpioPin::Pin1.into()) {
+        pw_log::error!("Pin 1 (ConstantZero) readback failed (expected Low)");
+        return Err(pw_status::Error::Internal.into());
+    }
+
+    // Configure Pin 1 as input, connected to ConstantOne
+    pw_log::info!("Configuring Pin 1 as input connected to ConstantOne");
+    gpio.configure(
+        GpioPin::Pin1.into(),
+        EarlGreyPinConfig {
+            is_input: true,
+            is_output: false,
+            input_filter: false,
+            pad: Some(Pad::ConstantOne),
+            pull: Pull::None,
+        },
+    )
+    .map_err(|_| pw_status::Error::Internal)?;
+
+    // Read Pin 1, should be high (1)
+    let input = gpio.read_input().map_err(|_| pw_status::Error::Internal)?;
+    if !input.contains(GpioPin::Pin1.into()) {
+        pw_log::error!("Pin 1 (ConstantOne) readback failed (expected High)");
+        return Err(pw_status::Error::Internal.into());
+    }
+
+    Ok(())
+}
+
+fn test_gpio_mio_loopback() -> Result<()> {
+    let mut gpio = unsafe { EarlGreyGpio::new() };
+
+    // Configure Pin 2 as output, connected to Pad::IOA0
+    pw_log::info!("Configuring Pin 2 as output connected to IOA0");
+    gpio.configure(
+        GpioPin::Pin2.into(),
+        EarlGreyPinConfig {
+            is_input: false,
+            is_output: true,
+            input_filter: false,
+            pad: Some(Pad::IOA0),
+            pull: Pull::None,
+        },
+    )
+    .map_err(|_| pw_status::Error::Internal)?;
+
+    // Configure Pin 3 as input, connected to Pad::IOA0
+    pw_log::info!("Configuring Pin 3 as input connected to Pad::IOA0");
+    gpio.configure(
+        GpioPin::Pin3.into(),
+        EarlGreyPinConfig {
+            is_input: true,
+            is_output: false,
+            input_filter: false,
+            pad: Some(Pad::IOA0),
+            pull: Pull::None,
+        },
+    )
+    .map_err(|_| pw_status::Error::Internal)?;
+
+    // Set Pin 2 high
+    pw_log::info!("Setting Pin 2 high");
+    gpio.set_reset(GpioPin::Pin2.into(), GpioMask::empty())
+        .map_err(|_| pw_status::Error::Internal)?;
+
+    // Read Pin 3, should be high
+    let input = gpio.read_input().map_err(|_| pw_status::Error::Internal)?;
+    if !input.contains(GpioPin::Pin3.into()) {
+        pw_log::error!("MIO Loopback failed (expected High on Pin 3)");
+        return Err(pw_status::Error::Internal.into());
+    }
+
+    // Set Pin 2 low
+    pw_log::info!("Setting Pin 2 low");
+    gpio.set_reset(GpioMask::empty(), GpioPin::Pin2.into())
+        .map_err(|_| pw_status::Error::Internal)?;
+
+    // Read Pin 3, should be low
+    let input = gpio.read_input().map_err(|_| pw_status::Error::Internal)?;
+    if input.contains(GpioPin::Pin3.into()) {
+        pw_log::error!("MIO Loopback failed (expected Low on Pin 3)");
+        return Err(pw_status::Error::Internal.into());
+    }
+
+    Ok(())
+}
+
 #[entry]
 fn entry() -> Result<()> {
     pw_log::info!("🔄 RUNNING GPIO SMOKE TEST");
-    let ret = test_gpio_basic();
+    let mut ret = test_gpio_basic();
+
+    if ret.is_ok() {
+        ret = test_gpio_constants();
+    }
+    if ret.is_ok() {
+        ret = test_gpio_mio_loopback();
+    }
 
     if ret.is_err() {
         pw_log::error!("❌ FAIL");
@@ -84,8 +197,4 @@ fn entry() -> Result<()> {
     ret
 }
 
-#[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-    pw_log::error!("FAIL: panic in gpio test");
-    loop {}
-}
+util_panic::make_panic_handler!();
