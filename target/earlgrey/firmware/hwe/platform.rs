@@ -5,19 +5,60 @@
 #![no_main]
 
 use pw_status::Error;
-use userspace::time::{sleep_until, Clock, Duration, SystemClock};
 use userspace::{process_entry, syscall};
 use util_error::{AsStatus, ErrorCode};
 use util_zfmt::messages::{ProcessExit, ProcessStart};
 
-/*
- * TODO: implement platform server.
- */
-
 fn platform_server() -> Result<(), ErrorCode> {
+    use earlgrey_platform::server::PlatformServer;
+    use platform_codegen::{handle, signals};
+    use userspace::syscall::Signals;
+    use userspace::time::{Clock, Duration, SystemClock};
+    use util_ipc::IpcHandle;
+
+    let mut server = PlatformServer::new(IpcHandle::new(handle::SYSMGR_PLATFORM))?;
+    server.set_exit_deadline(SystemClock::now() + Duration::from_secs(10));
+    server.start()?;
+
+    let usb_sig = signals::GPIO_16;
+    let rst0_sig = signals::GPIO_17;
+    let rst1_sig = signals::GPIO_18;
+
     loop {
-        sleep_until(SystemClock::now() + Duration::from_secs(600))
-            .map_err(ErrorCode::kernel_error)?;
+        if server.should_exit() {
+            return Ok(());
+        }
+        let deadline = server.next_deadline();
+        let wait_res =
+            syscall::object_wait(handle::PLATFORM_INTERRUPTS, Signals::READABLE, deadline);
+
+        match wait_res {
+            Ok(wait_return) => {
+                let signals = wait_return.pending_signals;
+
+                if (signals & usb_sig) != Signals::empty() {
+                    server.handle_usb_presence_interrupt()?;
+                }
+                if (signals & rst0_sig) != Signals::empty() {
+                    server.handle_rst_mon_interrupt(0)?;
+                }
+                if (signals & rst1_sig) != Signals::empty() {
+                    server.handle_rst_mon_interrupt(1)?;
+                }
+
+                syscall::interrupt_ack(handle::PLATFORM_INTERRUPTS, signals)
+                    .map_err(ErrorCode::kernel_error)?;
+            }
+            Err(Error::DeadlineExceeded) => {
+                if server.should_exit() {
+                    return Ok(());
+                }
+                server.handle_timeout()?;
+            }
+            Err(e) => {
+                return Err(ErrorCode::kernel_error(e));
+            }
+        }
     }
 }
 

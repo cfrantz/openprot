@@ -54,7 +54,6 @@ rust_process(
         "//protocol/usb/stack",
         "//services/flash:client",
         "//target/earlgrey/drivers:usb_driver",
-        "//target/earlgrey/registers:pinmux",
         "//target/earlgrey/registers:top_earlgrey",
         "//target/earlgrey/registers:usbdev",
         "//target/earlgrey/services/sysmgr:client",
@@ -129,7 +128,9 @@ rust_process(
     tags = ["kernel"],
     visibility = ["//visibility:public"],
     deps = [
+        "//target/earlgrey/services/platform",
         "//util/error",
+        "//util/ipc",
         "//util/zfmt",
         "@pigweed//pw_kernel/userspace",
         "@pigweed//pw_status/rust:pw_status",
